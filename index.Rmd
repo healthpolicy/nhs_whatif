@@ -1,0 +1,210 @@
+---
+title: "What if?"
+output: 
+  html_document:
+    css: style.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(htmltools)
+```
+
+
+<!-------------------------------- Story zone --------------------------------->
+
+<div class="story">
+
+  <div id="scene0" class="scene" style="width: 100vw; height: 100vh; padding: 30vh 0;">
+```{r}
+h1("What if?")
+p("Deconstructing an irreversible outcome from health inequality")
+```
+  </div>
+
+  <div id="scene1" class="scene" style="height: 300vh; padding: 0 0;">
+```{r}
+div(
+  id = "scene1_box", style = "height: 100vh; width: 40vw; padding: 10vh 0;",
+  div(id = "scene1_common", style = "width: 100%; display: inline-block; visibility: hidden;",
+      p(tags$i("Both are...")), 
+      p("63 years old and male", br(),
+        "fathers of two daughters", br(),
+        "patients with severe heart disease")
+  ),
+  
+  div(style = "width: 100%; display: inline-block; padding-top: 3vh;",
+      div(style = "width: 50%; float: left;",
+          img(src = "img/silhouette_lee.png", style = "width: 8.9vw; height: 10.3vw; opacity: 0.7;")),
+      div(style = "width: 50%; float: right;",
+          img(src = "img/silhouette_song.png", style = "width: 8.9vw; height: 10.3vw; opacity: 0.7;"))
+  ),
+  div(style = "width: 100%; display: inline-block;",
+      div(style = "float: left; width: 45%; padding-left: 3vw;", h1("Ajay")),
+      div(style = "float: left; width: 10%; padding-top: 4vh;", p("&")),
+      div(style = "float: left; width: 45%; padding-right: 3vw;", h1("Bob"))
+  ),
+  
+  div(id = "scene1_diff1", style = "width: 100%; display: inline-block; padding: 50px 0; visibility: hidden;", 
+      p(tags$i("However...")), 
+      div(style = "width: 50%; float: left;",
+          p("Ajay recovered from a", br(), 
+            "bypass surgery and", br(), 
+            "was discharged from hospital")),
+      div(style = "width: 50%; float: right;",
+          p(HTML("&nbsp;"), br(), 
+            "Bob died at the hospital"))
+  ),
+  div(id = "scene1_diff2", style = "width: 100%; display: inline-block; visibility: hidden;",
+      div(style = "width: 50%; float:left;",
+          p(img(src = "img/a_marker.png", style = "width: 2vw; height: 2.5vw;"),
+            "Ajay is in ", span(class = "imd10", "Hart"),", Hampshire")),
+      div(style = "width: 50%; float:right;",
+          p(img(src = "img/b_marker.png", style = "width: 2vw; height: 2.5vw;"),
+            "Bob is in ", span(class = "imd1", "Blackpool")))
+  )
+)
+```
+  </div>
+
+  <div id="scene2" class="scene">
+```{r}
+h1("That is not a coincidence")
+```
+  </div>
+
+  <div id="scene3" class="scene">
+```{r}
+h1("What if")
+p("Bob had gone to the hospital", br(), 
+  "at the right time?")
+```
+  </div>
+
+  <div id="scene4" class="scene">
+```{r}
+h1("What if")
+p("Bob had seen his GP more regularly", br(), 
+  "so that his GP could've detected and prevented", br(), 
+  "his condition earlier...")
+```
+  </div>
+
+  <div id="scene5" class="scene">
+```{r}
+p("...instead of ad hoc visits", br(), 
+  "to the Accident and Emergency (A&E)", br(),
+  "department?")
+```
+  </div>
+
+  <div id="scene6" class="scene">
+```{r}
+h1("What if")
+p("Bob had not been obese and", br(), 
+  "had a healthier lifestyle?")
+```
+  </div>
+
+  <div id="scene7" class="scene">
+```{r}
+h1("What if")
+p("Bob had enjoyed a better quality education", br(), 
+  "so that his employment prospects and", br(), 
+  "lifestyle would have been better?")
+```
+  </div>
+  
+  <div id="scene8" class="scene" style="height: 160vh;">
+```{r}
+h1("What if")
+p("Bob had not lived in a poor quality, cold house as a child", br(), 
+  "which contributed to his asthma", br(), 
+  "that sometimes prevented him from attending school?")
+```
+  </div>
+
+  <div id="scene9" class="scene" style="width: 100vw; height: 400vh; padding: 0 0;">
+```{r}
+div(
+  id = "scene9_box", style = "height: 100vh; width: 100vw;",
+  
+  div(id = "scene9_text1",
+      h1("All these things made the difference between Ajay recovery and Bob's premature death")),
+  
+  div(id = "scene9_text2", style = "visibility: hidden;",
+      h1("Unfortunately, the situation will be worsened generation after generation, if untouched")),
+  
+  div(id = "scene9_text3", style = "visibility: hidden;",
+      h1("The effect of growing health inequalities is felt across the whole nation"),
+      div(class = "row",
+          div(class = "column3-margin", HTML("&nbsp;")),
+          div(class = "column3", 
+              p(tags$b(style = "font-size: 2.5vw;", "54,020 years"), br(),
+                "of life of under 75 were lost", br(),
+                "due to heart disease:", br(),
+                tags$b(style = "font-size: 2.5vw;", "7,080 years"), br(),
+                "in the most deprived decile vs", br(),
+                tags$b(style = "font-size: 2.5vw;", "3,935 years"), br(),
+                "in the least deprived decile")
+          ),
+          div(class = "column3", 
+              
+              p("If entire England had", br(),
+                "the same infant death rate of", br(),
+                "the least deprived quintile,", br(),
+                tags$b(style = "font-size: 2.5vw;", "500 more", br(), "babies"), br(),
+                "would survive", br(),
+                "beyond the first year")
+          ),
+          div(class = "column3", 
+              
+              p("Health inequalities lead to", br(),
+                "productivity losses of", br(),
+                tags$b(style = "font-size: 2.5vw;", HTML("&pound;"), "31-33bn"), br(),
+                "per annum and ", br(),
+                "direct NHS costs of", br(),
+                tags$b(style = "font-size: 2.5vw;", HTML("&pound;"), "5.5bn"))
+              
+          ),
+          div(class = "column3-margin", HTML("&nbsp;")),
+      )
+  )
+)
+```
+  </div>
+
+  <div id="scene10" class="scene" style="width: 100vw; height: 30vh; padding: 0 0;">
+```{r}
+p("By Owen Cho and Eileen Robertson")
+p(style = "font-size: 0.9vw", "Acknowledgement: Nicole Meikle for design advice")
+p(HTML("&nbsp;"))
+p(HTML("&nbsp;"))
+p(HTML("&nbsp;"))
+p(HTML("&nbsp;"))
+p(HTML("&nbsp;"))
+p(style = "font-size: 0.8vw; text-align: right;",
+  "For details about source and data processing, please refer ",
+  a(href = "technical_paper.html", target = "_blank", "technical paper"), 
+  HTML("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"), br(),
+  a(href = "https://github.com/healthpolicy/nhs_whatif", target = "_blank", "GitHub repo"),
+  HTML("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
+)
+
+  
+
+```
+  </div>
+
+</div>
+
+<!-------------------------------- Vis zone ----------------------------------->
+
+<div class="vis">
+```{r out.width='100vw', out.height='100vh'}
+r2d3::r2d3(data = jsonlite::read_json("js/data.json"),
+           script = "js/conductor.js",
+           dependencies="js/setup.js")
+```
+</div>

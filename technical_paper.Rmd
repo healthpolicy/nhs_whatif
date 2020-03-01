@@ -1,0 +1,1609 @@
+---
+title: "What if - technical paper"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(reticulate)
+set.seed(123)
+story_width <- 0.4
+```
+
+[What if](https://healthpolicy.github.io/nhs_whatif/) is a data visualisation designed for general people who are not necessarily familiar with healthcare in England or data analysis, explaining simplification of some visuals which is intended for easier understanding of the story. This may have brought some subtleties that sacrifice technicality - such as definition of each variable, source of raw data, or how they were processed for visualisation. In that capacity, the objective of this technical paper is to complete the potential incompleteness from the perspective of technicality.
+
+If you have any question or feedback, please let me know (ocho@healthpolicy.com.au).
+
+NOTE: As of `r format.Date(Sys.Date(), "%d %b %Y")`, this document is still work in progress.
+
+# Importing data
+
+## Source
+
+The code snippet below (hidden) shows how the source of each dataset was identified. It is summarised in the following table.
+
+```{r}
+raw_data_source <- list(
+  imd_lad = tibble(
+    description = "Index of multiple deprivation (IMD), local authority district",
+    source = "GOV.UK",
+    year = "",
+    page_url = "https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019",
+    download_url = "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/833995/File_10_-_IoD2019_Local_Authority_District_Summaries__lower-tier__.xlsx"
+  ),
+  imd_ccg = tibble(
+    description = "Index of multiple deprivation (IMD), clinical commissioning group",
+    source = "GOV.UK",
+    year = "",
+    page_url = "https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019",
+    download_url = "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/834003/File_13_-_IoD2019_Clinical_Commissioning_Group__CCG__Summaries.xlsx"
+  ),
+  imd_lsoa = tibble(
+    description = "Index of multiple deprivation (IMD), Lower layer Super Output Area",
+    source = "GOV.UK",
+    year = "",
+    page_url = "https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019",
+    download_url = "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/845345/File_7_-_All_IoD2019_Scores__Ranks__Deciles_and_Population_Denominators_3.csv"
+  ),
+  pop_lsoa = tibble(
+    description = "Population estimates, Lower layer Super Output Area",
+    source = "ONS",
+    year = "",
+    page_url = "https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/lowersuperoutputareamidyearpopulationestimates",
+    download_url = "https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fpopulationandmigration%2fpopulationestimates%2fdatasets%2flowersuperoutputareamidyearpopulationestimates%2fmid2018sape21dt1a/sape21dt1amid2018on2019lalsoasyoaestimatesformatted.zip"
+  ),
+  pop_lad = tibble(
+    description = "Population, Local Authority District",
+    source = "ONS",
+    year = "",
+    page_url = "https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland",
+    download_url = "https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland/mid20182019laboundaries/ukmidyearestimates20182019ladcodes.xls"
+  ),
+  hd_mort = tibble(
+    description = "Mortality from coronary heart disease: directly standardised rate, <75 years, 3-year average, MFP",
+    source = "NHS",
+    year = "2015-2017",
+    page_url = "https://digital.nhs.uk/data-and-information/publications/clinical-indicators/compendium-of-population-health-indicators/compendium-mortality/current/mortality-from-coronary-heart-disease/mortality-from-coronary-heart-disease-directly-standardised-rate-lt75-years-3-year-average-mfp",
+    download_url = "https://files.digital.nhs.uk/F8/C91387/09A_054DR0074_D.csv"
+  ),
+  chd_emer_admit = tibble(
+    description = "CHD emergency admission",
+    source = "LG inform",
+    year = "2011/12-2015/16",
+    page_url = "https://lginform.local.gov.uk/reports/lgastandard?mod-metric=3177&mod-area=E92000001&mod-group=AllRegions_England&mod-type=namedComparisonGroup",
+    download_url = "https://lginform.local.gov.uk/reports/shared/V265384F4A30624259316E38357A416F4B54356D2B597A4F366143357537472B457142684C636D654E2F353832382F592F6B5367397744753352454636654F55566D395671414239734C4B485A4E2B546369327664424743724A75654955686365776464424C654459665A493D"
+  ),
+  chd_elec_admit = tibble(
+    description = "CHD elective admission",
+    source = "LG inform",
+    year = "2011/12-2015/16",
+    page_url = "https://lginform.local.gov.uk/reports/lgastandard?mod-metric=3178&mod-area=E92000001&mod-group=AllRegions_England&mod-type=namedComparisonGroup",
+    download_url = "https://lginform.local.gov.uk/reports/shared/V268496A627A6662426A58616677524D37582B346F653272624D662F4F67586349434855753458415269306430565533614E7466547A566D7137506542452F6348594F70426A634563443055724846633161377631593034465A555948586C6A56664A4748755453505336593D"
+  ),
+  obesity = tibble(
+    description = "Obesity: QOF prevalence (18+)",
+    source = "Public Health England",
+    year = "2018/19",
+    page_url = "https://fingertips.phe.org.uk/profile/general-practice/data#page/3/gid/3000010/pat/15/par/E92000001/ati/46/are/E39000026/iid/92588/age/168/sex/4",
+    download_url = "fingertipsR/92588"
+  ),
+  edu_lv3 = tibble(
+    description = "Education statistics by LA district and pupil disadvantage, Attainment of Level 3 by age 19",
+    source = "GOV.UK",
+    year = "2017",
+    page_url = "https://www.gov.uk/government/publications/education-statistics-by-la-district-and-pupil-disadvantage",
+    download_url = "https://www.gov.uk/government/uploads/system/uploads/attachment_data/file/672867/4.16to19DataTables_Jan.xlsx"
+  ),
+  # employment = tibble(
+  #   description = "The proportion of people of working age in employment",
+  #   year = "2014",
+  #   source = "NHS",
+  #   page_url = "https://digital.nhs.uk/data-and-information/publications/clinical-indicators/compendium-of-population-health-indicators/compendium-local-basket-of-inequality-indicators-lboi/current/section-1-employment-poverty-and-deprivation/lboi-indicator-1-3-the-proportion-of-people-of-working-age-in-employment",
+  #   download_url = "https://files.digital.nhs.uk/1D/E4A75A/LBOI_01.03_D.xlsx"
+  # ),
+  income = tibble(
+    description = "Gross Disposable Household Income per head by Local Authority",
+    year = "2016",
+    source = "ONS",
+    page_url = "https://www.ons.gov.uk/economy/regionalaccounts/grossdisposablehouseholdincome/datasets/regionalgrossdisposablehouseholdincomegdhibylocalauthorityintheuk",
+    download_url = "https://www.ons.gov.uk/file?uri=%2feconomy%2fregionalaccounts%2fgrossdisposablehouseholdincome%2fdatasets%2fregionalgrossdisposablehouseholdincomegdhibylocalauthorityintheuk%2f1997to2016/vcregionalgdhibylareordered.xlsx"
+  ),
+  health_eat = tibble(
+    description = "Estimated number of healthy eating adults",
+    year = "2006-08",
+    source = "LG Inform",
+    page_url = "https://lginform.local.gov.uk/reports/lgastandard?mod-metric=3340&mod-area=E06000009&mod-group=AllLaInCountry&mod-type=comparisonGroupType",
+    download_url = "https://lginform.local.gov.uk/reports/shared/V24A51774478426C4A6645574F746C62764C4167676F3070415445556563344E2B696A47424345775A39344C464479636A51777932353934455A624D794E4B3447353646374676683856584E6E696D397838414A73654164313741444B4F7244454A52777748306437502F413D"
+  ),
+  community = tibble(
+    description = "Admission episodes for alcohol-related conditions (Narrow)",
+    year = "2018/19",
+    source = "Public Health England",
+    page_url = "https://fingertips.phe.org.uk/search/alcohol%20specific%20conditions#page/3/gid/1/pat/6/par/E12000006/ati/102/are/E10000003/iid/91414/age/1/sex/4",
+    download_url = "fingertipsR/91414"
+  ),
+  fuel_poverty = tibble(
+    description = "Fuel poverty data measured as low income high costs",
+    year = "2017",
+    source = "GOV.UK",
+    page_url = "https://www.gov.uk/government/statistics/sub-regional-fuel-poverty-data-2019",
+    download_url = "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/808294/Fuel_poverty_sub-regional_tables_2019.xlsx"
+  ),
+  youth_asthma = tibble(
+    description = "Hospital admissions for asthma (under 19 years)",
+    year = "2017/18",
+    source = "Public Health England",
+    page_url = "https://fingertips.phe.org.uk/search/asthma%20admission#page/3/gid/1/pat/6/par/E12000006/ati/102/are/E10000003/iid/90810/age/220/sex/4",
+    download_url = "fingertipsR/90810"
+  ),
+  inequlity = tibble(
+    description = "Inequality : Under 75 mortality rate from all cardiovascular diseases",
+    year = "2010-2017",
+    source = "Public Health England",
+    page_url = "https://connect.healthdatainsight.org.uk/health_inequalities/dashboard/",
+    download_url = ""
+  ),
+  yll = tibble(
+    description = "Years of life lost due to mortality from coronary heart disease: directly standardised rate, 1-74 years, 3-year average, MFP",
+    year = "2015-2017",
+    source = "NHS",
+    page_url = "https://digital.nhs.uk/data-and-information/publications/clinical-indicators/compendium-of-population-health-indicators/compendium-mortality/current/years-of-life-lost/years-of-life-lost-due-to-mortality-from-coronary-heart-disease-directly-standardised-rate-1-74-years-3-year-average-mfp",
+    download_url = "https://files.digital.nhs.uk/FB/42E521/09S_064DR_D.csv"
+  )
+) %>% 
+  bind_rows(.id = "data")
+
+raw_data_source %>% 
+  mutate(page_url = paste0("<a href='", page_url, "'>Link</a>")) %>% 
+  select(Data = description, Source = source, Year = year, Link = page_url) %>% 
+  kableExtra::kable(escape = FALSE) %>% 
+  kableExtra::kable_styling(full_width = FALSE)
+```
+
+## Download
+
+The source data were downloaded from the web. They were accessed in February 2020, and ideally (unless there is any change of the sources) this result can be replicated with R and required packages. As downloading takes time, the code below is to save the downloaded data as RDS data format and do not repeat downloading if the data are located.
+
+```{r}
+did_you_download_raw_data <- "raw_data.RDS" %in% list.files()
+if (did_you_download_raw_data) {
+  raw_data <- readRDS("raw_data.RDS")
+} else {
+  raw_data <- list()
+}
+
+determine_filetype <- function(x) {
+  case_when(
+    str_detect(x, "\\.xls$") ~ ".xls",
+    str_detect(x, "\\.xlsx$") ~ ".xlsx",
+    str_detect(x, "\\.csv$") ~ ".csv",
+    str_detect(x, "\\.zip$") ~ ".zip",
+    str_detect(x, "^fingertipsR") ~ "fingertipsR",
+    TRUE ~ "html"
+  )
+}
+
+# Polite function to download and read the raw data
+please_download <- function(alread_have = raw_data, x, source = raw_data_source, ...) {
+  if (is.null(alread_have[[x]])) {
+    print(paste0("downloading `", x, "`"))
+    url <- source %>% 
+      filter(data == x) %>% 
+      .$download_url
+    file_type <- determine_filetype(url)
+    
+    need_file_download <- str_detect(file_type, "^\\.")
+    if (need_file_download) {
+      temp_file <- paste0(tempfile(), file_type)
+      download.file(url, temp_file, mode = "wb")
+    }
+    
+    need_unzip <- file_type == ".zip"
+    if (need_unzip) {
+      file_in_zip <- zip::zip_list(temp_file)$filename[1]
+      file_type <- determine_filetype(file_in_zip)
+      temp_dir <- tempdir()
+      zip::unzip(temp_file, exdir = temp_dir)
+      file_to_read <- paste0(temp_dir, "\\", file_in_zip)
+    } else if (need_file_download) {
+      file_to_read <- temp_file
+    }
+    param <- list(...)
+    read_in <- file_type %>% switch(
+      .xls = readxl::read_xls(file_to_read, sheet = param$sheet, skip = param$skip),
+      .xlsx = readxl::read_xlsx(file_to_read, sheet = param$sheet, skip = param$skip),
+      .csv = read_csv(file_to_read),
+      fingertipsR = fingertipsR::fingertips_data(str_replace(url, "^.*?/(.*?)$", "\\1"), 
+                                                 AreaTypeID = "All"),
+      html = xml2::read_html(url) %>% 
+        rvest::html_node("table") %>% 
+        rvest::html_table()
+    )
+    if (need_file_download) file.remove(file_to_read)
+    if (need_unzip) file.remove(temp_file)
+    
+    alread_have[[x]] <- read_in
+  }
+  return(alread_have)
+}
+
+# Download then add to R list object
+raw_data <- raw_data %>% 
+  please_download("imd_lad", sheet = "IMD", skip = 0) %>%
+  please_download("imd_ccg", sheet = "IMD", skip = 0) %>%
+  please_download("pop_lsoa", sheet = "Mid-2018 Persons", skip = 4) %>%
+  please_download("pop_lad", sheet = "MYE2-All", skip = 4) %>%
+  please_download("hd_mort") %>%
+  # please_download("pop", sheet = "MYE2-All", skip = 4) %>% 
+  please_download("chd_emer_admit") %>% 
+  please_download("chd_elec_admit") %>% 
+  please_download("obesity") %>% 
+  please_download("edu_lv3", sheet = "Table FE1", skip = 7) %>% 
+  # please_download("employment", sheet = "Table 11 - 2014", skip = 3) %>% 
+  please_download("income", sheet = "GDHI per head", skip = 2) %>% 
+  please_download("community") %>% 
+  please_download("health_eat") %>% 
+  please_download("fuel_poverty", sheet = "Table 2", skip = 2) %>% 
+  please_download("youth_asthma") %>% 
+  please_download("yll")
+
+## TO-DO: Integrate below datasets to the fucntion above
+raw_data[["imd_lsoa"]] <- read_csv("source/File_7_-_All_IoD2019_Scores__Ranks__Deciles_and_Population_Denominators_3.csv")
+
+# https://geoportal.statistics.gov.uk/datasets/lower-layer-super-output-area-2011-to-clinical-commissioning-group-to-local-authority-district-april-2016-lookup-in-england/data
+raw_data[["ccg_lsoa_lkup"]] <- read_csv("source/Lower_Layer_Super_Output_Area_2011_to_Clinical_Commissioning_Group_to_Local_Authority_District_April_2016_Lookup_in_England.csv")
+
+# https://digital.nhs.uk/data-and-information/find-data-and-publications/supplementary-information/2018-supplementary-information-files/ae-attendances---regional-breakdown
+raw_data[["ae_attn"]] <- readxl::read_xlsx(
+  "source/10528_Winter_Performance_Stats_Final.xlsx", 
+  "Table1", skip = 4
+)
+
+raw_data[["uk_shp"]] <- rgdal::readOGR("source/Countries_December_2018_Boundaries_UK_BUC.shp")
+raw_data[["lad_shp"]] <- rgdal::readOGR("source/Local_Authority_Districts_April_2019_Boundaries_UK_BUC.shp")
+
+raw_data[["gp_hc"]] <- readxl::read_excel(
+  "source/GPW Detailed Tables September 2019 - NHSE.xlsx",
+  "1a", skip = 12
+)
+
+raw_data[["gp_pt"]] <- readxl::read_excel(
+  "source/GPW Detailed Tables September 2019 - NHSE.xlsx",
+  "5", skip = 12
+)
+
+# How often do you see or speak to your preferred GP when you would like to?
+raw_data[["gp_survey_frequency"]] <- readxl::read_excel("source/GPPS_2019_CCG_results_(weighted)_(Excel)_PUBLIC.xls", 
+                                                        sheet = 2, skip = 8)
+
+# (When you tried to make an appointment), were you offered a choice of appointment?														
+raw_data[["gp_survey_choice"]] <- readxl::read_excel("source/GPPS_2019_CCG_results_(weighted)_(Excel)_PUBLIC.xls", 
+                                                     sheet = 3, skip = 7)
+
+# Overall, how would you describe your experience of your GP practice?
+raw_data[["gp_survey_satisfaction"]] <- readxl::read_excel("source/GPPS_2019_CCG_results_(weighted)_(Excel)_PUBLIC.xls", 
+                                                           sheet = 5, skip = 8)
+
+raw_data[["inequlity"]] <- read_csv("source/Health Inequalities DashboardHealth Inequalities DashboardOverviewDataIndicator DefinitionsContact us.csv")
+
+
+saveRDS(raw_data, "raw_data.RDS")
+```
+
+
+## Tidying up
+
+```{r}
+calc_imd_decile <- function(df) {
+  df %>% 
+    mutate(
+      imd_decile = cut(
+        imd_score,
+        breaks = Hmisc::wtd.quantile(imd_score, pop, seq(0, 1, by = 0.1)),
+        labels = as.character(10:1),
+        include.lowest = TRUE
+      ),
+      imd_decile = as.numeric(as.character(imd_decile))
+    )
+}
+
+clean_lg_inform_data <- function(df) {
+  df[-c(1, 2), ] %>% 
+    select(ladx = 1, value = 2) %>% 
+    mutate(
+      ladx = case_when(
+        ladx == "Herefordshire" ~ "Herefordshire, County of",
+        ladx == "Kingston upon Hull" ~ "Kingston upon Hull, City of",
+        ladx == "Bristol" ~ "Bristol, City of",
+        ladx == "Durham" ~ "County Durham",
+        ladx == "Bedford Borough" ~ "Bedford",
+        TRUE ~ ladx
+      ),
+      value = as.numeric(str_remove_all(value, ","))
+    ) %>% 
+    inner_join(imd_lad %>% select(lad, ladx), .)
+}
+
+ccg_lsoa_prop <- inner_join(
+  raw_data$ccg_lsoa_lkup %>% 
+    select(ccg = CCG16CDH, ccg_ons = CCG16CD, lsoa = LSOA11CD),
+  raw_data$pop_lsoa %>% 
+    select(lsoa = 1, pop = `All Ages`)
+) %>% 
+  group_by(ccg, ccg_ons) %>% 
+  mutate(prop = pop / sum(pop)) %>% 
+  ungroup() %>% 
+  select(ccg, ccg_ons, lsoa, prop)
+
+convert_ccg_to_lsoa <- function(df, calc_vars, calc = "sum") {
+  summ_df <- df %>% 
+    inner_join(ccg_lsoa_prop)
+  if (calc == "sum") {
+    summ_df %>% 
+      mutate_at(calc_vars, list(~. * prop))
+  } else if (calc == "mean") {
+    summ_df
+  }
+}
+
+convert_lsoa_to_lad <- function(df, calc_vars, calc = "sum") {
+  summ_df <- df %>% 
+    inner_join(raw_data$imd_lsoa %>% select(lsoa = 1, lad = 3, pop = 53)) %>% 
+    group_by(lad)
+  if (calc == "sum") {
+    summ_df %>% 
+      summarise_at(calc_vars, list(~sum(., na.rm = TRUE)))
+  } else if (calc == "mean") {
+    summ_df %>% 
+      summarise_at(calc_vars, list(~weighted.mean(., pop, na.rm = TRUE)))
+  }
+}
+
+convert_lsoa_to_decile <- function(df, calc_vars, calc = "sum") {
+  summ_df <- df %>% 
+    inner_join(raw_data$imd_lsoa %>% 
+                 select(lsoa = 1, imd_decile = 7)) %>% 
+    group_by(imd_decile)
+  if (calc == "sum") {
+    summ_df %>% 
+      summarise_at(calc_vars, list(~sum(., na.rm = TRUE)))
+  } else if (calc == "mean") {
+    summ_df %>% 
+      left_join(
+        raw_data$pop_lsoa %>% 
+          select(lsoa = 1, pop = `All Ages`)
+      ) %>% 
+      summarise_at(calc_vars, list(~weighted.mean(., pop, na.rm = TRUE)))
+  }
+}
+
+```
+
+
+### LAD level data
+
+```{r}
+imd_lad <- inner_join(
+  raw_data$imd_lad %>% 
+    select(
+      lad = `Local Authority District code (2019)`, 
+      ladx = `Local Authority District name (2019)`,
+      imd_score = `IMD - Average score`
+    ),
+  raw_data$pop_lad %>% 
+    select(lad = Code, pop = `All ages`)  
+) %>% 
+  calc_imd_decile()
+
+hd_mort <- raw_data$hd_mort %>% 
+  filter(SEX_CODE == "P") %>% 
+  select(lad = NEW_CODE, hd_mort = DSR)
+
+edu_lv3 <- raw_data$edu_lv3 %>% 
+  select(lad = 1, edu_lv3 = 5) %>% 
+  mutate(edu_lv3 = as.numeric(edu_lv3)) %>% 
+  inner_join(imd_lad) %>% 
+  select(lad, edu_lv3)
+
+# employment <- raw_data$employment %>% 
+#   mutate(employment = as.numeric(Percent)) %>% 
+#   select(ladx = Area, employment) %>% 
+#   inner_join(imd_lad) %>% 
+#   select(lad, employment)
+
+income <- raw_data$income %>% 
+  select(lad = 2, income = `2016`) %>% 
+  filter(lad %in% imd_lad$lad)
+
+pop_adult_lad <- raw_data$pop_lad %>% 
+  select(-c(2:4)) %>% 
+  rename(lad = Code) %>% 
+  filter(lad %in% imd_lad$lad) %>% 
+  pivot_longer(-lad, names_to = "age", values_to = "pop") %>% 
+  filter(as.numeric(age) >= 18) %>% 
+  group_by(lad) %>% 
+  summarise(pop_adult = sum(pop))
+
+health_eat <- raw_data$health_eat %>% 
+  clean_lg_inform_data() %>% 
+  left_join(pop_adult_lad) %>% 
+  mutate(health_eat = value / pop_adult * 100) %>% 
+  select(lad, health_eat)
+
+community <- raw_data$community %>% 
+  filter(AreaType == "District & UA", Timeperiod == "2018/19", Sex == "Persons") %>% 
+  select(lad = AreaCode, community = Value) %>% 
+  unique()
+
+fuel_poverty <- raw_data$fuel_poverty %>% 
+  mutate(fuel_poverty = as.numeric(`Proportion of households fuel poor (%)`)) %>% 
+  select(lad = `LA Code`, fuel_poverty) %>% 
+  filter(lad %in% imd_lad$lad, !is.na(fuel_poverty))
+
+youth_asthma <- raw_data$youth_asthma %>% 
+  filter(Timeperiod == "2017/18", Sex == "Persons", AreaCode %in% imd_lad$lad) %>% 
+  select(lad = AreaCode, youth_asthma = Value) %>% 
+  unique()
+
+tidy_lad_data <- function(ls) {
+  ls %>% 
+    map(pivot_longer, -lad) %>% 
+    bind_rows() %>% 
+    filter(lad %in% imd_lad$lad) %>% 
+    pivot_wider()
+}
+
+# >> consolidate
+lad_data <- list(
+  hd_mort,
+  edu_lv3,
+  income,
+  health_eat,
+  community,
+  fuel_poverty,
+  youth_asthma
+) %>% 
+  tidy_lad_data() %>% 
+  left_join(imd_lad, .)
+
+# Data in this object were not visualised but used for modelling
+lad_data_others <- list(
+  chd_emer_elec = raw_data[c("chd_emer_admit", "chd_elec_admit")] %>% 
+    map(~clean_lg_inform_data(.x) %>% 
+          select(lad, value)) %>% 
+    bind_rows(.id = "name") %>% 
+    pivot_wider(),
+  gp_access = raw_data[c("gp_hc", "gp_pt")] %>%
+    map(
+      ~.x %>%
+        select(ccg = 4, value = 6) %>%
+        convert_ccg_to_lsoa(vars(value)) %>% 
+        convert_lsoa_to_lad(vars(value))
+    ) %>%
+    bind_rows(.id = "name") %>%
+    pivot_wider() %>% 
+    mutate(gp_access = gp_hc / gp_pt * 100000) %>% 
+    select(lad, gp_access),
+  ae_attn = raw_data$ae_attn %>% 
+    filter(Geography == "CCG") %>% 
+    select(ccg = `Organisation Code`, 
+           ae_attn_total = `A&E Attendances`, 
+           pop2 = Population) %>% 
+    convert_ccg_to_lsoa(vars(ae_attn_total, pop2)) %>% 
+    convert_lsoa_to_lad(vars(ae_attn_total, pop2)) %>% 
+    mutate(ae_attn = ae_attn_total / pop2 * 1000) %>% 
+    select(lad, ae_attn),
+  obesity = raw_data$obesity %>% 
+    filter(AreaType == "CCGs (2018/19)", Timeperiod == "2018/19") %>% 
+    select(ccg_ons = AreaCode, obesity = Value) %>% 
+    convert_ccg_to_lsoa(vars(obesity), calc = "mean") %>% 
+    convert_lsoa_to_lad(vars(obesity), calc = "mean") %>% 
+    select(lad, obesity)
+) %>% 
+  tidy_lad_data()
+```
+
+### IMD decile level data
+```{r}
+ccg_pop <- inner_join(
+  raw_data$pop_lsoa %>% 
+    filter(!is.na(LSOA)) %>% 
+    select(lsoa = `Area Codes`, pop = `All Ages`),
+  raw_data$ccg_lsoa_lkup %>% 
+    select(lsoa = LSOA11CD, ccg = CCG16CDH, ccg_ons = CCG16CD)
+) %>% 
+  group_by(ccg, ccg_ons) %>% 
+  summarise(pop = sum(pop)) %>% 
+  ungroup()
+imd_ccg <- inner_join(
+  raw_data$imd_ccg %>% 
+    select(
+      ccg_ons = `Clinical Commissioning Group Code (2019)`, 
+      imd_score = `IMD - Average score`
+    ),
+  ccg_pop  
+) %>% 
+  calc_imd_decile()
+
+chd_emer_elec <- raw_data[c("chd_emer_admit", "chd_elec_admit")] %>%
+  map(~clean_lg_inform_data(.x) %>%
+      select(lad, value)) %>%
+  bind_rows(.id = "name") %>%
+  pivot_wider() %>% 
+  left_join(imd_lad) %>% 
+  group_by(imd_decile) %>% 
+  summarise_at(vars(chd_emer_admit, chd_elec_admit), 
+               list(~weighted.mean(., pop)))
+
+
+gp_access <- raw_data[c("gp_hc", "gp_pt")] %>%
+  map(
+    ~.x %>%
+      select(ccg = 4, value = 6) %>%
+      convert_ccg_to_lsoa(vars(value)) %>%
+      convert_lsoa_to_decile(vars(value))
+  ) %>%
+  bind_rows(.id = "name") %>%
+  pivot_wider() %>% 
+  mutate(gp_access = gp_hc / gp_pt * 100000)
+
+summarise_survey <- function(df, prefix) {
+  df %>% 
+    gather("name", "value", factor_key = TRUE, -ccg) %>% 
+    mutate(value = as.numeric(value)) %>% 
+    inner_join(imd_ccg) %>% 
+    group_by(imd_decile, name) %>% 
+    summarise(value = weighted.mean(value, pop, na.rm = TRUE)) %>% 
+    group_by(imd_decile) %>% 
+    mutate(value = value / sum(value)) %>% 
+    ungroup() %>% 
+    mutate(name = paste0(prefix, "~", as.numeric(name), " ", name)) %>% 
+    pivot_wider()
+}
+
+gp_survey_frequency <- raw_data$gp_survey_frequency %>% 
+  select(ccg = 2, 132:135) %>% 
+  summarise_survey("gp_survey_frequency")
+  
+gp_survey_choice <- raw_data$gp_survey_choice %>% 
+  select(ccg = 2, 84:87) %>% 
+  summarise_survey("gp_survey_choice")
+
+gp_survey_satisfaction <- raw_data$gp_survey_satisfaction %>% 
+  select(ccg = 2, 14:18) %>% 
+  summarise_survey("gp_survey_satisfaction")
+
+ae_attn <- raw_data$ae_attn %>%
+  filter(Geography == "CCG") %>%
+  select(ccg = `Organisation Code`, ae_attn_total = `A&E Attendances`, pop = Population) %>%
+  convert_ccg_to_lsoa(vars(ae_attn_total, pop)) %>% 
+  convert_lsoa_to_decile(vars(ae_attn_total, pop)) %>% 
+  mutate(ae_attn = ae_attn_total / pop * 1000)
+
+obesity <- raw_data$obesity %>% 
+  filter(AreaType == "CCGs (2018/19)", Timeperiod == "2018/19") %>% 
+  select(ccg_ons = AreaCode, obesity = Value) %>% 
+  inner_join(imd_ccg) %>%
+  group_by(imd_decile) %>%
+  summarise(obesity = weighted.mean(obesity, pop))
+
+
+# >> consolidate
+decile_data <- list(
+  chd_emer_elec,
+  gp_access,
+  gp_survey_frequency,
+  gp_survey_choice,
+  gp_survey_satisfaction,
+  ae_attn,
+  obesity
+) %>% 
+  map(pivot_longer, -imd_decile) %>% 
+  bind_rows() %>% 
+  pivot_wider()
+```
+
+### Others
+
+```{r}
+inequlity <- list(
+  hd_mort_eng = raw_data$inequlity %>% 
+    filter(is.na(Group)) %>% 
+    mutate(Measure = "Under 75 mortality rate from all cardiovascular diseases"),
+  inequality_index = raw_data$inequlity %>% 
+    filter(Measure == "(log) Relative index of inequality")
+) %>% 
+  bind_rows(.id = "data") %>% 
+  select(data, measure = Measure, year = `Time period`, value = Value) %>% 
+  filter(substr(year, 1, 4) %in% 2010:2015)
+
+yll <- raw_data$yll %>% 
+  filter(SEX_CODE == "P") %>% 
+  mutate(region_category = ifelse(ORG_TITLE == "England", "national", "imd_decile")) %>% 
+  split(.$region_category) %>% 
+  modify_at(
+    "imd_decile", 
+    ~.x %>% 
+      select(lad = NEW_CODE, DEATHS) %>% 
+      inner_join(imd_lad) %>% 
+      group_by(imd_decile) %>% 
+      summarise(DEATHS = sum(DEATHS))
+  ) %>% 
+  bind_rows(.id = "region") %>% 
+  select(region, imd_decile, yll = DEATHS)
+```
+
+
+<!------------------------------ section break -------------------------------->
+
+# Data analysis
+
+## Scene 1
+```{r}
+raw_data$lad_shp %>% 
+  sf::st_as_sf() %>% 
+  inner_join(lad_data, by = c("LAD19CD" = "lad")) %>% 
+  ggplot() +
+  geom_sf(aes(fill = imd_decile))
+```
+
+## Scene 2
+```{r}
+ggplot(lad_data, aes(imd_score, hd_mort, col = imd_decile, size = pop)) + 
+  geom_point()
+```
+
+## Scene 3
+```{r}
+ggplot(decile_data, aes(y = imd_decile, x = chd_emer_admit, xend = chd_elec_admit)) + 
+  ggalt::geom_dumbbell(size=3, color="#e3e2e1", 
+                       colour_x = "red", colour_xend = "blue",
+                       dot_guide=TRUE, dot_guide_size=0.25) +
+  ggtitle("Red = emergency admission; blue = elective admission") +
+  coord_flip()
+```
+
+## Scene 4
+
+https://www.nuffieldtrust.org.uk/news-item/are-parts-of-england-left-behind-by-the-nhs
+
+```{r}
+ggplot(decile_data, aes(imd_decile, gp_access)) + 
+  geom_point() +
+  geom_line()
+```
+
+```{r}
+decile_data %>% 
+  select(imd_decile, starts_with("gp_survey")) %>% 
+  pivot_longer(-imd_decile) %>% 
+  separate(name, into = c("survey", "response"), sep = "~") %>% 
+  ggplot(aes(imd_decile, value, fill = response)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~survey, nrow = 1) +
+  theme(legend.position = "bottom")
+```
+
+
+## Scene 5
+
+```{r}
+ggplot(decile_data, aes(imd_decile, ae_attn)) + 
+  geom_point() +
+  geom_line()
+```
+
+## Scene 6
+```{r}
+ggplot(decile_data, aes(imd_decile, obesity)) +
+  geom_col()
+```
+
+## Scene 7
+
+https://societyhealth.vcu.edu/work/the-projects/why-education-matters-to-health-exploring-the-causes.html
+
+```{r}
+lad_data %>% 
+  select(lad, pop, imd_decile, 
+         edu_lv3,
+         a_income = income,
+         b_health_eat = health_eat,
+         c_community = community) %>% 
+  pivot_longer(-c(lad, pop, imd_decile, edu_lv3)) %>% 
+  ggplot(aes(edu_lv3, log10(value), size = pop, col = imd_decile)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_wrap(~name, ncol = 1, scales = "free_y")
+```
+
+## Scene 8
+
+```{r}
+ggplot(lad_data, aes(fuel_poverty, log10(youth_asthma), size = pop, col = imd_decile)) +
+  geom_point() +
+  coord_polar(theta = "y", direction = -1) +
+  ylim(c(1.8, 3.7))
+```
+
+
+## Scene 9: Modelling
+```{r}
+# Consolidating all data
+model_data <- lad_data %>% 
+  left_join(lad_data_others)
+
+# Check NAs - youth asthma is excluded
+model_data %>% 
+  map(is.na) %>% 
+  map_dbl(mean)
+
+model_data2 <- model_data %>% 
+  select(-youth_asthma) %>% 
+  na.omit()
+
+lad_in_trainset <- model_data2 %>% 
+  split(.$imd_decile) %>% 
+  map(function(df) {
+    df2 <- df %>% 
+      filter(!ladx %in% c("Blackpool", "Hart"))
+    sample_size <- round(nrow(df) * 0.8)
+    sample_n(df2, size = sample_size, weight = pop)
+  }) %>% 
+  bind_rows() %>% 
+  .[["lad"]]
+
+model_data3 <- model_data2 %>% 
+  mutate(chd_emer_elec_ratio = chd_emer_admit / chd_elec_admit) %>%
+  # Emergency/elective admissions were combined to one
+  select(-ladx, -imd_score, -imd_decile, -chd_emer_admit, -chd_elec_admit) %>% 
+  mutate(test = !lad %in% lad_in_trainset)
+
+write_csv(model_data3, "model_data.csv")
+```
+
+```{python eval=FALSE}
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from keras.models import Sequential
+from keras.layers import Dense
+import shap; shap.initjs()
+
+np.random.seed(123)
+
+model_data = r.model_data3
+# model_data = pd.read_csv('model_data.csv')
+
+train_set = model_data[model_data['test'] == False]
+test_set = model_data[model_data['test'] == True]
+
+X_train = train_set.drop(['lad', 'pop', 'hd_mort', 'test'], axis=1).to_numpy()
+X_test = test_set.drop(['lad', 'pop', 'hd_mort', 'test'], axis=1).to_numpy()
+y_train = train_set['hd_mort'].values.ravel()
+y_test = test_set['hd_mort'].values.ravel()
+sample_weight_train = train_set['pop'].values.ravel()
+
+scaler = StandardScaler()
+scaler.fit(X_train)
+X_train_scaled = scaler.transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+model = Sequential()
+model.add(Dense(10, activation='relu', input_dim=X_train_scaled.shape[1]))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+model.fit(X_train_scaled, y_train, batch_size=80, epochs=150, sample_weight=sample_weight_train)
+
+predicted = model.predict(X_test_scaled)
+summary = pd.DataFrame({'lad': test_set['lad'].values.ravel(), 
+                        'actual': y_test, 
+                        'predicted': predicted.ravel()})
+
+explainer_shap = shap.DeepExplainer(model=model, data=X_train_scaled)
+shap_values = explainer_shap.shap_values(X=X_test_scaled, ranked_outputs=True)
+
+lad_list = test_set['lad'].values
+for i in list(range(0, test_set.shape[0])):
+    if lad_list[i]=='E06000009':
+        i_Blackpool = i
+        print('E06000009 Blackpool:', i_Blackpool)
+    if lad_list[i]=='E07000089':
+        i_Hart = i
+        print('E07000089 Hart:', i_Hart)
+
+E06000009_df = pd.DataFrame({'feature_names': feature_names, 'shap': shap_values[0][0][i_Blackpool]})
+E06000009_df['lad'] = 'E06000009'
+E06000009_df['predicted'] = predicted[i_Blackpool][0]
+
+E07000089_df = pd.DataFrame({'feature_names': feature_names, 'shap': shap_values[0][0][i_Hart]})
+E07000089_df['lad'] = 'E07000089'
+E07000089_df['predicted'] = predicted[i_Hart][0]
+
+result_df = pd.concat([E06000009_df, E07000089_df], axis=0)
+result_df['base_value'] = explainer_shap.expected_value[0]
+
+result_df.to_csv('nn_shap_value.csv')
+```
+
+```{r}
+# nn_shap <- read_csv("nn_shap_value.csv")
+nn_shap <- read_csv("nn_shap_value.csv")
+
+modelled_data <- nn_shap %>% 
+  group_by(lad) %>% 
+  mutate(
+    diff = predicted - base_value,
+    shap_pc = shap / sum(shap),
+    effect_normalised = diff * shap_pc
+  ) %>% 
+  ungroup() %>% 
+  left_join(hd_mort) %>% 
+  select(lad, feature_names, effect_normalised, base_value, predicted, actual = hd_mort) %>% 
+  mutate(feature_names = factor(feature_names, levels = c(
+    "fuel_poverty", "income", "health_eat", "community", "edu_lv3", 
+    "obesity", "ae_attn", "gp_access", "chd_emer_elec_ratio")
+  )) %>% 
+  arrange(lad, feature_names)
+
+modelled_data %>% 
+  split(.$lad) %>% 
+  map(function(df) {
+    p <- waterfalls::waterfall(values = round(df$effect_normalised, 2),
+                               labels = as.character(df$feature_names),
+                               calc_total = TRUE,
+                               total_axis_text = "HD mortality\n(compared to baseline)")
+    ladx <- imd_lad %>% 
+      filter(lad == unique(df$lad)) %>% 
+      .$ladx
+    p + ggtitle(ladx)
+  })
+```
+
+## Scene 10
+
+```{r}
+inequlity %>% 
+  ggplot(aes(year, value, group = 1)) + 
+  geom_point() +
+  geom_line() +
+  facet_wrap(~measure, scales = "free_y", ncol = 1)
+```
+
+
+## Scene 11
+```{r}
+yll %>% 
+  filter(imd_decile %in% c(NA, 1, 10))
+```
+
+
+<!------------------------------ section break -------------------------------->
+
+# Processing data for D3 visualisation
+
+## Helper functions
+```{r}
+normalise <- function(x, min, max) {
+  range <- max - min
+  map_dbl(x, ~((.x - min) / range * 100))
+}
+
+contain_x_to_viszone <- function(x, .story_width = story_width) {
+  map_dbl(x, ~(.x * (1 - .story_width) + .story_width * 100))
+}
+```
+
+## Map shape
+```{r}
+uk_shp0 <- raw_data[["uk_shp"]]
+lad_shp0 <- raw_data[["lad_shp"]]
+
+crop_pc <- list(x = 0.25, y = 0.35)
+
+standardise_coord <- function(value, x_or_y, bbox) {
+  bbox_len <- bbox[x_or_y, "max"] - bbox[x_or_y, "min"]
+  if (x_or_y == "y") {
+    bbox[x_or_y, "max"] <- bbox[x_or_y, "min"] + bbox_len * (1 - crop_pc[[x_or_y]])
+  } else if (x_or_y == "x") {
+    bbox[x_or_y, "min"] <- bbox[x_or_y, "max"] - bbox_len * (1 - crop_pc[[x_or_y]])
+  }
+  bbox_len_cropped <- bbox[x_or_y, "max"] - bbox[x_or_y, "min"]
+  (value - bbox[x_or_y, "min"]) * (100 / bbox_len_cropped)
+}
+output_coord_df_standardised <- function(matrix, bbox) {
+  matrix %>% 
+    as_tibble() %>% 
+    mutate(
+      x = standardise_coord(x, "x", bbox) * 0.5 + 50,  # For x:y ratio
+      y = standardise_coord(y, "y", bbox)
+    ) %>% 
+    mutate(x = x * 0.9, y = y * 0.9 + 5)  # For margin
+    
+}
+
+uk_shp1 <- uk_shp0[uk_shp0$ctry18nm %in% c("Scotland", "Wales"), ] %>% 
+  rgeos::gSimplify(tol = 1000)
+uk_shp2 <- map(uk_shp1@polygons, ~.x@Polygons) %>% 
+  flatten() %>% 
+  map(~.x@coords %>% 
+        output_coord_df_standardised(uk_shp0@bbox)
+  ) 
+uk_shp3 <- uk_shp2[map_dbl(uk_shp2, nrow) > 0] %>% 
+  map(as.list)
+
+lad_shp1 <- lad_shp0 %>% 
+  sf::st_as_sf() %>% 
+  filter(LAD19CD %in% imd_lad$lad)
+
+if ("lad_shp2.RDS" %in% list.files()) {
+  lad_shp2 <- readRDS("lad_shp2.RDS")
+} else {
+  par(mfrow = c(2, 3), mar = c(0, 0, 2, 0))
+  lad_shp_hex_ls <- list()
+  for (i in 1:6) {
+    lad_shp_hex_ls[[i]] <- geogrid::calculate_grid(
+      shape = lad_shp1,
+      grid_type = "hexagonal",
+      seed = i
+    )
+    plot(lad_shp_hex_ls[[i]], main = paste("Seed", i, sep = " "))
+  }
+  lad_shp_grid <- lad_shp_hex_ls[[5]]
+  
+  lad_shp2 <- geogrid::assign_polygons(lad_shp1, lad_shp_grid)
+  # Takes around 20 minutes
+  saveRDS(lad_shp2, "lad_shp2.RDS")
+}
+
+lad_shp3 <- lad_shp2$geometry %>% 
+  setNames(lad_shp2$LAD19CD) %>% 
+  map(~as.character(.x) %>% 
+        str_remove_all("^c\\(|\\)$") %>% 
+        str_split(", ") %>% 
+        .[[1]] %>% 
+        as.numeric() %>% 
+        matrix(ncol = 2) %>% 
+        head(6) %>% 
+        as_tibble() %>% 
+        setNames(c("x", "y")) %>% 
+        output_coord_df_standardised(lad_shp0@bbox) %>% 
+        mutate(x = x - 3) %>%  # To correct slight mismatch
+        as.list()) %>% 
+  .[lad_data$lad]
+```
+
+
+## LAD
+```{r}
+hexscatter_df <- lad_data %>% 
+  mutate(
+    hd_mort_na = ifelse(is.na(hd_mort), 1, 0),
+    x_from = map_dbl(lad_shp3, ~mean(.x$x)),
+    y_from = map_dbl(lad_shp3, ~mean(.x$y)),
+    x_to = (1 - imd_score / max(imd_score, na.rm = TRUE)) * 100 + 2,
+    x_to = x_to * (1 - story_width) + story_width * 100,
+    y_to = hd_mort / max(hd_mort, na.rm = TRUE) * 100 - 10,
+    x_delta = x_to - x_from,
+    y_delta = y_to - y_from,
+    hexscatter = pmap(
+      list(lad_shp3, x_delta, y_delta, hd_mort_na),
+      function(h, xd, yd, na) {
+        if (na == 1) {
+          coord <- list(x = h$x, y = h$y)
+        } else {
+          coord <- list(x = h$x + xd, y = h$y + yd)
+        }
+        left_join(  # This is to reduce the size of hexagons
+          as_tibble(coord) %>% 
+            gather(),
+          as_tibble(coord) %>% 
+            summarise_all(mean) %>% 
+            gather(key, value_centre),
+          by = "key"
+        ) %>% 
+          mutate(
+            length = value - value_centre,
+            length_scaled = length * 0.8,
+            value_scaled = value_centre + length_scaled
+          ) %>% 
+          select(key, value_scaled) %>% 
+          split(.$key) %>% 
+          map("value_scaled")
+      }
+    )
+  ) %>% 
+  select(lad, hd_mort_na, hexscatter)
+
+hex_collapse <- lad_data %>% 
+  mutate(
+    hd_mort_na = ifelse(is.na(hd_mort), 1, 0),
+    imd_decile_jitter = jitter(imd_decile, amount = 0.3),
+    x_from = map_dbl(hexscatter_df$hexscatter, ~mean(.x$x)),
+    y_from = map_dbl(hexscatter_df$hexscatter, ~mean(.x$y)),
+    x_to = story_width * 100,
+    y_to = imd_decile_jitter / max(imd_decile_jitter, na.rm = TRUE) * 100,
+    y_to = y_to * 0.8 + 15,
+    x_delta = x_to - x_from,
+    y_delta = y_to - y_from,
+    hex_collapse = pmap(
+      list(hexscatter_df$hexscatter, x_delta, y_delta, hd_mort_na),
+      function(h, xd, yd, na) {
+        if (na == 1) {
+          coord <- list(x = 50, y = 50)
+        } else {
+          coord <- list(x = h$x + xd, y = h$y + yd)
+        }
+      }
+    )
+  ) %>% 
+  .[["hex_collapse"]]
+
+
+lad_data_p <- lad_data %>% 
+  mutate(
+    tooltip = paste0(
+      "<b>", ladx, "</b><br><sup>Local Authority District ", lad,"</sup><br>",
+      "Deprivation score: ", round(imd_score), "<br><sup>Index of Multiple Deprivation (IMD), higher is worse</sup><br>",
+      "Deprivation decile group: ", imd_decile, "<br><sup>1st is most deprived and 10th is least deprived</sup>"
+    ),
+    tooltip2 = paste0(
+      tooltip, "<br>Premature death rate (mortality rate) from heart disease: ", round(hd_mort),
+      "<br><sup>Rate of deaths at age under 75 years</sup>"
+    )
+  ) %>% 
+  select(lad, ladx, imd_decile, tooltip, tooltip2) %>% 
+  mutate(
+    hexmap = lad_shp3,
+    hex_collapse = hex_collapse
+  ) %>% 
+  left_join(hexscatter_df)
+```
+
+## IMD decile
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+range_where_hex_collapsed <- lad_data_p %>% 
+  mutate(
+    collapsed_to = map(hex_collapse, ~summarise_all(as_tibble(.x), mean)),
+    collapsed_to_y = map_dbl(collapsed_to, "y")
+  ) %>% 
+  group_by(imd_decile) %>% 
+  summarise(y = mean(collapsed_to_y)) %>% 
+  .$y %>% 
+  range() %>% 
+  setNames(c("min", "max"))
+
+decile_y <- seq(range_where_hex_collapsed[["min"]], 
+                range_where_hex_collapsed[["max"]], 
+                length.out = 10)
+
+bar_space <- mean(lead(decile_y, 1) - decile_y, na.rm = TRUE)
+bar_padding_pc <- 0.05
+bar_height <- bar_space * (1 - bar_padding_pc)
+
+# range(decile_data$chd_emer_admit)
+# range(decile_data$chd_elec_admit)
+dumbbell_range <- c(min = 50, max = 150)
+
+# range(decile_data$gp_access)
+gp_range <- c(min = 70, max = 85)
+
+# range(decile_data$ae_attn)
+ae_range <- c(min = 300, max = 550)
+
+# range(decile_data$obesity)
+obesity_range <- c(min = 0, max = 15)
+
+num_to_ordinal <- function(x) {
+  map_chr(x, ~case_when(
+    .x == 1 ~ "1st",
+    .x == 2 ~ "2nd",
+    TRUE ~ paste0(.x, "th")
+  ))
+}
+decile_data_p <- decile_data %>% 
+  mutate(
+    decile_y = decile_y,
+    decile_bar_y = decile_y - bar_height / 2,
+    decile_y = decile_y - bar_space + 1,  
+    ## Don't know why but this renders correctly
+    decile_bar_h = bar_height,
+    
+    dumbbell_emer_x = normalise(chd_emer_admit, 
+                                dumbbell_range[["min"]], dumbbell_range[["max"]]),
+    dumbbell_elec_x = normalise(chd_elec_admit, 
+                                dumbbell_range[["min"]], dumbbell_range[["max"]]),
+    chd_emer_dominant = chd_emer_admit > chd_elec_admit,
+    tooltip_dumbbell_link = paste0("In ", num_to_ordinal(imd_decile), " most deprived decile<br><u>",
+                                   ifelse(chd_emer_dominant, "emergency (unplanned)", "elective (planned)"),
+                                   " admission is dominant</u> over ",
+                                   ifelse(!chd_emer_dominant, "emergency (unplanned)", "elective (planned)"),
+                                   "<br>: <u>",
+                                   round(ifelse(chd_emer_dominant, chd_emer_admit, chd_elec_admit), 1),
+                                   " compared to ",
+                                   round(ifelse(!chd_emer_dominant, chd_emer_admit, chd_elec_admit), 1), "</u>"),
+    tooltip_dumbbell_emer = paste0("In ", num_to_ordinal(imd_decile), " most deprived decile<br>",
+                                   "emergency (unplanned) admission rate is <u>", 
+                                   round(chd_emer_admit, 1), "</u>"),
+    tooltip_dumbbell_elec = paste0("In ", num_to_ordinal(imd_decile), " most deprived decile<br>",
+                                   "elective (planned) rate is <u>", 
+                                   round(chd_elec_admit, 1), "</u>"),
+    
+    gp_x = normalise(gp_access, 
+                     gp_range[["min"]], gp_range[["max"]]) * 0.5,
+    gp_grad = gp_x + 5,
+    tooltip_gp = paste0("In ", num_to_ordinal(imd_decile), " most deprived decile<br>", 
+                        "roughly <u>", round(gp_access, 1),
+                        "</u> GPs care for 100,000 registered patients on average"),
+      
+    ae_x = normalise(ae_attn, 
+                     ae_range[["min"]], ae_range[["max"]]) * 0.5,
+    ae_grad = ae_x + 5,
+    ae_x = ae_x + 50,
+    tooltip_ae = paste0("In ", num_to_ordinal(imd_decile), " most deprived decile<br>",
+                        "there were roughly <u>", round(ae_attn), "</u> A&E attendances per 1,000 population"),
+    
+    obesity_w = normalise(obesity, 
+                          obesity_range[["min"]], obesity_range[["max"]]),
+    tooltip_obesity = paste0("In ", num_to_ordinal(imd_decile), " most deprived decile<br><u>",
+                             round(obesity, 1), "%</u> of patients aged 18 and over have a BMI of 30 or above")
+  ) %>% 
+  mutate_at(vars(ends_with("_x")), list(contain_x_to_viszone)) %>% 
+  mutate_at(vars(ends_with("_w")), list(~. * (1 - story_width))) %>% 
+  select(imd_decile, 
+         decile_y, decile_bar_y, decile_bar_h, 
+         dumbbell_emer_x, dumbbell_elec_x, 
+         gp_x, ae_x, gp_grad, ae_grad,
+         obesity_w, 
+         starts_with("tooltip_"))
+```
+
+## LAD (for scene 7 onward)
+```{r}
+# summary(lad_data$edu_lv3)
+edu_range <- c(min = 30, max = 80)
+# summary(lad_data$income)
+# summary(log10(lad_data$income))
+# summary(lad_data$health_eat)
+# summary(log10(lad_data$health_eat))
+# summary(lad_data$community)
+# summary(log10(lad_data$community))
+
+lad_is_na <- lad_data %>% 
+  select(edu_lv3, income, health_eat, community) %>% 
+  mutate_all(is.na) %>% 
+  rowSums()
+
+scene7_layout <- list(top_margin = 0.08, bottom_margin = 0.07, between_pad = 0.01)
+scene7_layout[["p_height"]] <- (
+  1 - scene7_layout$top_margin - scene7_layout$bottom_margin - 
+    scene7_layout$between_pad * 2
+) / 3
+scene7_layout[["p3_start"]] <- scene7_layout$bottom_margin
+scene7_layout[["p3_end"]] <- scene7_layout$p3_start + scene7_layout$p_height
+scene7_layout[["p3_mid"]] <- (scene7_layout[["p3_start"]] +
+                              scene7_layout[["p3_end"]]) / 2
+scene7_layout[["p2_start"]] <- scene7_layout$p3_end + scene7_layout$between_pad
+scene7_layout[["p2_end"]] <- scene7_layout$p2_start + scene7_layout$p_height
+scene7_layout[["p2_mid"]] <- (scene7_layout[["p2_start"]] +
+                              scene7_layout[["p2_end"]]) / 2
+scene7_layout[["p1_start"]] <- scene7_layout$p2_end + scene7_layout$between_pad
+scene7_layout[["p1_end"]] <- scene7_layout$p1_start + scene7_layout$p_height
+scene7_layout[["p1_mid"]] <- (scene7_layout[["p1_start"]] +
+                              scene7_layout[["p1_end"]]) / 2
+
+lad_data_p2 <- lad_data[lad_is_na == 0, ] %>% 
+  select(lad, ladx, pop, imd_decile, edu_lv3, income, health_eat, community) %>% 
+  mutate_at(vars(income, health_eat, community), list(log10)) %>% 
+  # Normalising
+  mutate(
+    edu_lv3 = normalise(edu_lv3, edu_range[["min"]], edu_range[["max"]]),
+    pop = normalise(pop, min(pop), max(pop)),
+    pop = 1 + pop / 100
+  ) %>% 
+  mutate_at(vars(income, health_eat, community), list(function(x) {
+    lower <- floor(min(x) * 10) / 10
+    upper <- ceiling(max(x) * 10) / 10
+    normalise(x, lower, upper)
+  })) %>% 
+  # Converse "community" variable
+  mutate(community = 100 - community) %>% 
+  # Transform for three sections
+  mutate_at(vars(income, health_eat, community), list(~. * scene7_layout$p_height)) %>% 
+  mutate(
+    y1 = income + scene7_layout$p1_start * 100,
+    y2 = health_eat + scene7_layout$p2_start * 100,
+    y3 = community + scene7_layout$p3_start * 100,
+  ) %>%
+  select(lad, ladx, pop, imd_decile, x = edu_lv3, y1, y2, y3) %>% 
+  pivot_longer(c(y1, y2, y3), values_to = "y") %>% 
+  left_join(
+    lad_data %>% 
+      select(lad, edu_lv3, income, health_eat, community)
+  ) %>% 
+  mutate(
+    tooltip1 = paste0(
+      "<b>", ladx, "</b><br><sup>Local Authority District ", lad,"</sup><br><u>",
+      round(edu_lv3, 1), "%</u> attained Level 3 at 19<br>"
+    ),
+    tooltip2 = case_when(
+      name == "y1" ~ paste0("Gross Disposable Household Income per head is <u>&pound;",
+                            prettyNum(round(income), big.mark = ","), "</u>"),
+      name == "y2" ~ paste0("<u>", round(health_eat, 1), 
+                            "%</u> of adults have healthy eating habits"),
+      name == "y3" ~ paste0("<u>", prettyNum(round(community), big.mark = ","),
+                            "</u> admissions for alcohol-related conditions per 100,000 population (age standardised)")
+    ),
+    tooltip = paste0(tooltip1, tooltip2, "<br><sup>The vertical axis is log scale</sup>")
+  ) %>% 
+  select(lad, ladx, pop, imd_decile, x, name, y, tooltip) %>% 
+  mutate(
+    y_start = case_when(
+      name == "y1" ~ scene7_layout[["p1_mid"]],
+      name == "y2" ~ scene7_layout[["p2_mid"]],
+      name == "y3" ~ scene7_layout[["p3_mid"]]
+    ),
+    y_start = jitter(y_start * 100, amount = 1),
+    x = contain_x_to_viszone(x * 0.6 + 20),
+    stroke = ifelse(lad %in% c("E07000089", "E06000009"), "white", "none")
+  )
+
+# summary(lad_data$fuel_poverty)
+r_range <- c(min = 3, max = 19.5)
+# summary(log10(lad_data$youth_asthma))
+
+process_circle <- function(df) {
+  df %>% 
+    mutate(
+      r = normalise(fuel_poverty, r_range[["min"]], r_range[["max"]]) * 0.5,
+      angle = log10(youth_asthma),
+      angle = normalise(angle, 1.8, 2.8),
+      more_than_half = angle > 50,
+      angle2 = ifelse(!more_than_half, angle, 100 - angle),
+      t = tan(angle2 / 100 * pi),
+      y_raw = sqrt(r^2 / (t^2 + 1)),
+      x_diff = y_raw * t,
+      y = ifelse(!more_than_half, y_raw, -y_raw) + 50
+    )
+}
+
+lad_data_p3 <- lad_data %>% 
+  group_by(imd_decile) %>% 
+  mutate(
+    youth_asthma_imputed = weighted.mean(youth_asthma, pop, na.rm = TRUE),
+    youth_asthma = ifelse(lad == "E07000089", youth_asthma_imputed, youth_asthma)
+  ) %>% 
+  ungroup() %>% 
+  filter(!is.na(youth_asthma) & !is.na(fuel_poverty)) %>% 
+  process_circle() %>% 
+  mutate(
+    tooltip = paste0(
+      "<b>", ladx, "</b><br><sup>Local Authority District ", lad,"</sup><br><u>",
+      round(fuel_poverty, 1), "%</u> of households are fuel poor<br><u>",
+      prettyNum(round(youth_asthma), big.mark = ","), 
+      "</u> asthma admissions for under 19 years per 100,000 population"
+    ),
+    pop = normalise(pop, min(pop), max(pop)),
+    pop = 1 + pop / 100,
+    point = case_when(
+      lad == "E07000089" ~ "a",
+      lad == "E06000009" ~ "b"
+    )
+  ) %>% 
+  select(lad, point, x_diff, y, imd_decile, tooltip, pop)
+
+scene8_radius <- tibble(youth_asthma = 1:5 * 100, fuel_poverty = 20) %>% 
+  process_circle() %>% 
+  select(youth_asthma, x_diff, y)
+scene8_circum <- tibble(youth_asthma = 5 * 100, fuel_poverty = 1:4 * 5) %>% 
+  process_circle() %>% 
+  select(fuel_poverty, r)
+```
+
+## Modelled data
+```{r}
+scene9_layout <- c(top = 0.1, bottom = 0.05, pad = 0.05)
+
+modelled_data_wip <- modelled_data %>% 
+  group_by(lad) %>% 
+  bind_rows(., summarise_at(., vars(effect_normalised), list(sum))) %>% 
+  ungroup() %>% 
+  # mutate(denominator = max(abs(effect_normalised))) %>%
+  split(.$lad) %>% 
+  map(function(df) {
+    # unique(df$predicted)
+    # unique(df$actual)
+    # unique(df$base_value)
+    df %>% 
+      mutate(
+        h = effect_normalised,
+        feature = case_when(
+          feature_names == "fuel_poverty" ~ "Fuel poverty",
+          feature_names == "income" ~ "Household income",
+          feature_names == "health_eat" ~ "Healthy eating",
+          feature_names == "community" ~ "Alcohol-related admissions",
+          feature_names == "edu_lv3" ~ "Education",
+          feature_names == "obesity" ~ "Obesity",
+          feature_names == "ae_attn" ~ "A&E attendance",
+          feature_names == "gp_access" ~ "Access to GP",
+          feature_names == "chd_emer_elec_ratio" ~ "Emergency admission",
+          TRUE ~ "<b>Total</b>"
+        ),
+        end = cumsum(h),
+        start = end - h,
+        end = ifelse(row_number() == nrow(.), lag(end, 1), end),
+        start = ifelse(row_number() == nrow(.), 0, start)
+      ) %>% 
+      select(feature_names, feature, h, start, end)
+  }) %>% 
+  .[c("E06000009", "E07000089")] %>% 
+  setNames(c("p1", "p2"))
+
+scene9_height_range <- modelled_data_wip %>% 
+  map(pivot_longer, -c(feature, feature_names)) %>% 
+  bind_rows() %>% 
+  .$value %>% 
+  range(na.rm = TRUE) %>% 
+  setNames(c("p2", "p1")) %>% 
+  .[c("p1", "p2")]
+
+scene9_height_ratio <- ((1 - sum(scene9_layout)) * abs(scene9_height_range) / sum(abs(scene9_height_range))) %>% 
+  .[c("p1", "p2")]
+
+modelled_data_wip2 <- pmap(
+  list(modelled_data_wip, scene9_height_range, scene9_height_ratio),
+  function(d, range, ratio) {
+    d2 <- d %>% 
+      mutate_at(vars(h, start, end), list(~normalise(., 0, abs(range)) * ratio))
+    offset <- min(pivot_longer(d2, -c(feature, feature_names, h))$value, na.rm = TRUE)
+    d2 %>%
+      mutate_at(vars(start, end), list(~. - offset))
+  }) %>% 
+  map(mutate, feature_names = as.character(feature_names)) %>% 
+  map(mutate, feature_names = ifelse(is.na(feature_names), "hd_mort", feature_names))
+
+scene9_layout[["p2_axis"]] <- scene9_layout[["bottom"]] + scene9_height_ratio[["p2"]]
+scene9_layout[["p1_axis"]] <- scene9_layout[["p2_axis"]] +
+  scene9_layout[["pad"]]
+scene9_layout <- scene9_layout %>% 
+  append(list(axis_label = tibble(feature = modelled_data_wip2$p1$feature)))
+
+percentile_worse_best <- function(worse_higher = TRUE) {
+  ifelse(worse_higher, 
+         "% percentile in England, where 100% is worst and 0% is best)",
+         "% percentile in England, where 0% is worst and 100% is best)")
+}
+
+model_tooltip_x <- model_data %>% 
+  mutate(chd_emer_elec_ratio = chd_emer_admit / chd_elec_admit) %>% 
+  mutate_if(is.numeric, list(pc = ~percent_rank(.) * 100)) %>% 
+  filter(lad %in% modelled_data$lad) %>% 
+  select(
+    lad, ladx, 
+    levels(modelled_data$feature_names), 
+    paste0(levels(modelled_data$feature_names), "_pc")
+  ) %>% 
+  pivot_longer(-c(lad, ladx)) %>% 
+  mutate(
+    cat = ifelse(str_detect(name, "_pc"), "pc", "value"),
+    name = str_remove(name, "_pc")
+  ) %>% 
+  pivot_wider(names_from = "cat", values_from = "value") %>% 
+  rename(feature_names = name) %>% 
+  left_join(modelled_data) %>% 
+  mutate(
+    tooltip = case_when(
+      feature_names == "fuel_poverty" ~ 
+        paste0("fuel poverty ", round(value, 1), "%<br>(", 
+               round(pc), percentile_worse_best()),
+      feature_names == "income" ~ 
+        paste0("household income &pound;", prettyNum(round(value), big.mark = ","), "<br>(", 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == "health_eat" ~ 
+        paste0("proportion of healthy eating adults ", round(value, 1), "%<br>(", 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == "community" ~ 
+        paste0("alcohol-related admissions ", prettyNum(round(value), big.mark = ","), "<br>(", 
+               round(pc), percentile_worse_best()),
+      feature_names == "edu_lv3" ~ 
+        paste0("proportion of attainment of lv 3 at 19 ", round(value, 1), "%<br>(", 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == "obesity" ~ 
+        paste0("obesity prevalence ", round(value, 1), "%<br>(", 
+               round(pc), percentile_worse_best()),
+      feature_names == "ae_attn" ~ 
+        paste0("A&E attendance rate ", prettyNum(round(value), big.mark = ","), "<br>(", 
+               round(pc), percentile_worse_best()),
+      feature_names == "gp_access" ~ 
+        paste0("number GPs per 100,000 patients ", round(value, 1), "<br>(", 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == "chd_emer_elec_ratio" ~
+        paste0("emergency:planned ratio of CHD admissions ", round(value, 2), ":1<br>(", 
+               round(pc), percentile_worse_best(FALSE)),
+    ),
+    tooltip = paste0(ladx, "&rsquo;s ", tooltip, "<br>",
+                     ifelse(effect_normalised > 0, "added ", "reduced "),
+                     "<u>", abs(round(effect_normalised, 1)), "</u>",
+                     ifelse(effect_normalised > 0, " to ", " from "),
+                     "simulated death rate (mortality rate)")
+  ) %>% 
+  select(lad, feature_names, tooltip)
+
+model_tooltip_y <- modelled_data %>% 
+  select(lad, base_value, predicted, actual) %>% 
+  unique() %>% 
+  left_join(imd_lad %>% select(lad, ladx)) %>% 
+  mutate_if(is.numeric, list(~round(., 1))) %>% 
+  mutate(
+    tooltip = paste0(
+      "Factors mentioned on left plus base rate of ", base_value, 
+      " result in ", ladx, 
+      "&rsquo;s simulated death rate (mortality rate) of <u>", predicted,
+      "</u> (actual is ", actual, ")"),
+    feature_names = "hd_mort"
+  ) %>% 
+  select(lad, feature_names, tooltip)
+  
+model_tooltip <- bind_rows(model_tooltip_x, model_tooltip_y) %>% 
+  split(.$lad)
+
+modelled_data_p <- list(
+  p1 = modelled_data_wip2$p1 %>%
+    mutate_at(vars(start, end), 
+              list(~. + scene9_layout[["p1_axis"]] * 100)) %>% 
+    left_join(model_tooltip$E06000009),
+  p2 = modelled_data_wip2$p2 %>%
+    mutate_at(vars(start, end), 
+              list(~. + scene9_layout[["bottom"]] * 100)) %>% 
+    left_join(model_tooltip$E07000089)
+) %>% 
+  map(mutate, imd_decile = case_when(
+    feature_names != "hd_mort" & h > 0 ~ 2,
+    feature_names != "hd_mort" & h < 0 ~ 9,
+    feature_names == "hd_mort" & h > 0 ~ 1,
+    feature_names == "hd_mort" & h < 0 ~ 10
+  ))
+```
+
+## Others
+```{r}
+inequlity_data_p <- inequlity %>% 
+  mutate(
+    tooltip = case_when(
+      data == "hd_mort_eng" ~ "Premature death rate (mortality rate, under 75)<br>from heart disease in England",
+      data == "inequality_index" ~ "Relative index of inequality (log scale)"
+    ),
+    tooltip = paste0(tooltip, ",<br>during ", year, "<br>: <u>", round(value, 1), "</u>")
+  ) %>% 
+  split(.$data) %>% 
+  map(mutate, x = row_number()) %>% 
+  map(mutate, x = x / max(x) * 80 + 10) %>% 
+  modify_at(
+    "hd_mort_eng", 
+    ~.x %>% 
+      mutate(
+        value = normalise(value, 50, 100),
+        x = x / 2 * 0.9 + 5,
+        imd_decile = 9
+      )
+  ) %>% 
+  modify_at(
+    "inequality_index", 
+    ~.x %>% 
+      mutate(
+        value = normalise(value, 3, 5),
+        x = x / 2 * 0.9 + 55,
+        imd_decile = 2,
+        measure = "Relative index of inequality (log)"
+      )
+  ) %>% 
+  map(mutate, value = value * 0.75 + 5)
+
+yll_summ <- yll %>% 
+  filter(imd_decile %in% c(NA, 1, 10)) %>% 
+  mutate(
+    region = ifelse(is.na(imd_decile), region, paste0(region, imd_decile)),
+    yll = prettyNum(yll, big.mark = ",")
+  ) %>% 
+  (function(x) x$yll %>% setNames(x$region)) %>% 
+  as.list()
+```
+
+## Location of A & B
+
+```{r}
+ab_loc <- lad_data_p %>% 
+  mutate(point = case_when(
+    ladx == "Hart" ~ "a",
+    ladx == "Blackpool" ~ "b"
+  )) %>% 
+  filter(!is.na(point)) %>% 
+  mutate(
+    s1_x = map_dbl(hexmap, ~mean(.x$x)), s1_y = map_dbl(hexmap, ~mean(.x$y)),
+    s2_x = map_dbl(hexscatter, ~mean(.x$x)), s2_y = map_dbl(hexscatter, ~mean(.x$y))
+  ) %>% 
+  select(point, ends_with("_x"), ends_with("_y")) %>% 
+  pivot_longer(-point) %>% 
+  separate(name, into = c("scene", "name"), sep = "_") %>% 
+  pivot_wider() %>% 
+  split(.$scene)
+ab_loc[["s3"]] <- decile_data_p %>% 
+  mutate(point = case_when(
+    imd_decile == 10 ~ "a",
+    imd_decile == 1 ~ "b"
+  )) %>% 
+  filter(!is.na(point)) %>% 
+  mutate(
+    x = story_width * 100,
+    y = decile_y
+  )
+ab_loc[["s7"]] <- lad_data_p2 %>% 
+  select(lad, x) %>% 
+  unique() %>% 
+  mutate(point = case_when(
+    lad == "E07000089" ~ "a",
+    lad == "E06000009" ~ "b"
+  )) %>% 
+  filter(!is.na(point)) %>% 
+  mutate(y = scene7_layout$p3_start * 100)
+ab_loc[["s8"]] <- lad_data_p3 %>% 
+  filter(!is.na(point)) %>% 
+  select(point, x_diff, y)
+ab_loc[["s9"]] <- tibble(
+  point = c("b", "a"), 
+  x = 21,
+  y = c(scene9_layout$p1_axis, scene9_layout$p2_axis) * 100 - 0.3
+)
+```
+
+
+## Save as JSON
+```{r}
+list(
+  uk_shp = uk_shp3, 
+  
+  lad = lad_data_p,
+  
+  decile = decile_data_p,
+  gp_x = decile_data_p$gp_x, gp_grad = decile_data_p$gp_grad, 
+  ae_x = decile_data_p$ae_x, ae_grad = decile_data_p$ae_grad, 
+  decile_y = decile_data_p$decile_y,
+  
+  scene7_layout = map(scene7_layout, ~.x * 100),
+  
+  lad2 = lad_data_p2,
+  lad3 = lad_data_p3, 
+  scene8_radius = scene8_radius, scene8_circum = scene8_circum, 
+  scene8_inner = scene8_circum$r[1],
+  
+  model = modelled_data_p,
+  scene9_layout = map_if(scene9_layout, is.numeric, ~.x * 100),
+  
+  inequlity = inequlity_data_p,
+  inequlity_path_x = inequlity_data_p %>% map("x"),
+  inequlity_path_y = inequlity_data_p %>% map("value"),
+  inequlity_axis = inequlity_data_p %>% 
+    map("measure") %>% 
+    map_chr(unique),
+  
+  yll = yll_summ, 
+  
+  ab_loc = ab_loc %>% 
+    map(~.x %>% 
+          split(.$point) %>% 
+          map(select, starts_with("x"), y) %>% 
+          map(as.list))
+) %>% 
+  jsonlite::toJSON() %>% 
+  write("js/data.json")
+```
+

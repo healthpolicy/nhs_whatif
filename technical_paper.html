@@ -1595,7 +1595,7 @@ div.tocify {
 
 <p><a href="https://healthpolicy.github.io/nhs_whatif/">What if</a> is a data visualisation designed for general people who are not necessarily familiar with healthcare in England or data analysis, explaining simplification of some visuals which is intended for easier understanding of the story. This may have brought some subtleties that sacrifice technicality - such as definition of each variable, source of raw data, or how they were processed for visualisation. In that capacity, the objective of this technical paper is to complete the potential incompleteness from the perspective of technicality.</p>
 <p>If you have any question or feedback, please let me know (<a href="mailto:ocho@healthpolicy.com.au" class="email">ocho@healthpolicy.com.au</a>).</p>
-<p>NOTE: As of 27 Feb 2020, this document is still work in progress.</p>
+<p>NOTE: As of 02 Mar 2020, this document is still work in progress.</p>
 <div id="importing-data" class="section level1">
 <h1>Importing data</h1>
 <div id="source" class="section level2">
@@ -1727,13 +1727,6 @@ div.tocify {
     source = &quot;NHS&quot;,
     page_url = &quot;https://digital.nhs.uk/data-and-information/publications/clinical-indicators/compendium-of-population-health-indicators/compendium-mortality/current/years-of-life-lost/years-of-life-lost-due-to-mortality-from-coronary-heart-disease-directly-standardised-rate-1-74-years-3-year-average-mfp&quot;,
     download_url = &quot;https://files.digital.nhs.uk/FB/42E521/09S_064DR_D.csv&quot;
-  ),
-  allocation = tibble(
-    description = &quot;Allocations of financial resources to Clinical Commissioning Groups (CCGs)&quot;,
-    year = &quot;2016/17-2020/21&quot;,
-    source = &quot;NHS&quot;,
-    page_url = &quot;https://www.england.nhs.uk/allocations/allocations-2016-17-to-2020-21/&quot;,
-    download_url = &quot;https://www.england.nhs.uk/wp-content/uploads/2016/01/ccg-allocations.pdf&quot;
   )
 ) %&gt;% 
   bind_rows(.id = &quot;data&quot;)
@@ -1994,20 +1987,6 @@ NHS
 <a href="https://digital.nhs.uk/data-and-information/publications/clinical-indicators/compendium-of-population-health-indicators/compendium-mortality/current/years-of-life-lost/years-of-life-lost-due-to-mortality-from-coronary-heart-disease-directly-standardised-rate-1-74-years-3-year-average-mfp">Link</a>
 </td>
 </tr>
-<tr>
-<td style="text-align:left;">
-Allocations of financial resources to Clinical Commissioning Groups (CCGs)
-</td>
-<td style="text-align:left;">
-NHS
-</td>
-<td style="text-align:left;">
-2016/17-2020/21
-</td>
-<td style="text-align:left;">
-<a href="https://www.england.nhs.uk/allocations/allocations-2016-17-to-2020-21/">Link</a>
-</td>
-</tr>
 </tbody>
 </table>
 </div>
@@ -2143,8 +2122,6 @@ raw_data[[&quot;gp_survey_satisfaction&quot;]] &lt;- readxl::read_excel(&quot;so
                                                            sheet = 5, skip = 8)
 
 raw_data[[&quot;inequlity&quot;]] &lt;- read_csv(&quot;source/Health Inequalities DashboardHealth Inequalities DashboardOverviewDataIndicator DefinitionsContact us.csv&quot;)
-
-raw_data[[&quot;allocation&quot;]] &lt;- pdftools::pdf_text(&quot;source/total-place-allocations.pdf&quot;)
 
 
 saveRDS(raw_data, &quot;raw_data.RDS&quot;)</code></pre>
@@ -2479,38 +2456,7 @@ yll &lt;- raw_data$yll %&gt;%
       summarise(DEATHS = sum(DEATHS))
   ) %&gt;% 
   bind_rows(.id = &quot;region&quot;) %&gt;% 
-  select(region, imd_decile, yll = DEATHS)
-
-allocation &lt;- map(
-  raw_data$allocation, 
-  ~.x %&gt;% 
-    str_remove(&quot;^.*\r\n&quot;) %&gt;% 
-    str_replace(&quot;^Allocations\r\nPlace based allocation&quot;, &quot;ccg&quot;) %&gt;% 
-    str_replace_all(&quot;\\s{2}\\s+&quot;, &quot;|&quot;) %&gt;% 
-    read_delim(delim = &quot;|&quot;) %&gt;% 
-    setNames(str_replace(names(.), &quot;^(\\d{1,2})$&quot;, &quot;.col_\\1&quot;)) %&gt;% 
-    select(ccg, starts_with(&quot;.col_&quot;)) %&gt;% 
-    mutate_all(as.character) %&gt;% 
-    pivot_longer(-ccg)
-) %&gt;% 
-  bind_rows() %&gt;% 
-  filter(!ccg %in% c(&quot;CCG&quot;, &quot;code CCG&quot;), !is.na(value)) %&gt;% 
-  mutate(
-    ccg = substr(ccg, 1, 3),
-    year = case_when(
-      name == &quot;.col_9&quot; ~ &quot;2016-17&quot;,
-      name == &quot;.col_19&quot; ~ &quot;2017-18&quot;,
-      name == &quot;.col_28&quot; ~ &quot;2018-19&quot;,
-      name == &quot;.col_37&quot; ~ &quot;2019-20&quot;,
-      name == &quot;.col_46&quot; ~ &quot;2020-21&quot;
-    ),
-    value = as.numeric(str_remove_all(value, &quot;,&quot;))
-  ) %&gt;% 
-  filter(!is.na(year)) %&gt;% 
-  inner_join(imd_ccg) %&gt;% 
-  group_by(year, imd_decile) %&gt;% 
-  summarise(alloc = weighted.mean(value, pop)) %&gt;% 
-  ungroup()</code></pre>
+  select(region, imd_decile, yll = DEATHS)</code></pre>
 <!------------------------------ section break -------------------------------->
 </div>
 </div>
@@ -2757,18 +2703,6 @@ modelled_data %&gt;%
 ## 1 imd_decile          1  7080
 ## 2 imd_decile         10  3935
 ## 3 national           NA 54020</code></pre>
-<pre class="r"><code>allocation %&gt;% 
-  filter(imd_decile %in% c(1, 10)) %&gt;% 
-  pivot_wider(names_from = &quot;year&quot;, values_from = &quot;alloc&quot;) %&gt;% 
-  mutate(
-    increase = `2020-21` - `2016-17`,
-    multiple = increase / lead(increase)
-  )</code></pre>
-<pre><code>## # A tibble: 2 x 8
-##   imd_decile `2016-17` `2017-18` `2018-19` `2019-20` `2020-21` increase multiple
-##        &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;
-## 1          1     1747.     1783.     1818.     1855.     1919.     171.     1.23
-## 2         10     1465.     1493.     1521.     1551.     1605.     140.    NA</code></pre>
 <!------------------------------ section break -------------------------------->
 </div>
 </div>
@@ -2937,7 +2871,7 @@ lad_data_p &lt;- lad_data %&gt;%
       &quot;Deprivation decile group: &quot;, imd_decile, &quot;&lt;br&gt;&lt;sup&gt;1st is most deprived and 10th is least deprived&lt;/sup&gt;&quot;
     ),
     tooltip2 = paste0(
-      tooltip, &quot;&lt;br&gt;Premature mortality from heart disease: &quot;, round(hd_mort),
+      tooltip, &quot;&lt;br&gt;Premature death rate (mortality rate) from heart disease: &quot;, round(hd_mort),
       &quot;&lt;br&gt;&lt;sup&gt;Rate of deaths at age under 75 years&lt;/sup&gt;&quot;
     )
   ) %&gt;% 
@@ -3006,10 +2940,30 @@ lad_data_p2 &lt;- lad_data[lad_is_na == 0, ] %&gt;%
   mutate(
     y1 = income + scene7_layout$p1_start * 100,
     y2 = health_eat + scene7_layout$p2_start * 100,
-    y3 = community + scene7_layout$p3_start * 100
+    y3 = community + scene7_layout$p3_start * 100,
   ) %&gt;%
-  select(lad, pop, imd_decile, x = edu_lv3, y1, y2, y3) %&gt;% 
+  select(lad, ladx, pop, imd_decile, x = edu_lv3, y1, y2, y3) %&gt;% 
   pivot_longer(c(y1, y2, y3), values_to = &quot;y&quot;) %&gt;% 
+  left_join(
+    lad_data %&gt;% 
+      select(lad, edu_lv3, income, health_eat, community)
+  ) %&gt;% 
+  mutate(
+    tooltip1 = paste0(
+      &quot;&lt;b&gt;&quot;, ladx, &quot;&lt;/b&gt;&lt;br&gt;&lt;sup&gt;Local Authority District &quot;, lad,&quot;&lt;/sup&gt;&lt;br&gt;&lt;u&gt;&quot;,
+      round(edu_lv3, 1), &quot;%&lt;/u&gt; attained Level 3 at 19&lt;br&gt;&quot;
+    ),
+    tooltip2 = case_when(
+      name == &quot;y1&quot; ~ paste0(&quot;Gross Disposable Household Income per head is &lt;u&gt;&amp;pound;&quot;,
+                            prettyNum(round(income), big.mark = &quot;,&quot;), &quot;&lt;/u&gt;&quot;),
+      name == &quot;y2&quot; ~ paste0(&quot;&lt;u&gt;&quot;, round(health_eat, 1), 
+                            &quot;%&lt;/u&gt; of adults have healthy eating habits&quot;),
+      name == &quot;y3&quot; ~ paste0(&quot;&lt;u&gt;&quot;, prettyNum(round(community), big.mark = &quot;,&quot;),
+                            &quot;&lt;/u&gt; admissions for alcohol-related conditions per 100,000 population (age standardised)&quot;)
+    ),
+    tooltip = paste0(tooltip1, tooltip2, &quot;&lt;br&gt;&lt;sup&gt;The vertical axis is log scale&lt;/sup&gt;&quot;)
+  ) %&gt;% 
+  select(lad, ladx, pop, imd_decile, x, name, y, tooltip) %&gt;% 
   mutate(
     y_start = case_when(
       name == &quot;y1&quot; ~ scene7_layout[[&quot;p1_mid&quot;]],
@@ -3017,7 +2971,8 @@ lad_data_p2 &lt;- lad_data[lad_is_na == 0, ] %&gt;%
       name == &quot;y3&quot; ~ scene7_layout[[&quot;p3_mid&quot;]]
     ),
     y_start = jitter(y_start * 100, amount = 1),
-    x = contain_x_to_viszone(x * 0.6 + 20)
+    x = contain_x_to_viszone(x * 0.6 + 20),
+    stroke = ifelse(lad %in% c(&quot;E07000089&quot;, &quot;E06000009&quot;), &quot;white&quot;, &quot;none&quot;)
   )
 
 # summary(lad_data$fuel_poverty)
@@ -3040,14 +2995,29 @@ process_circle &lt;- function(df) {
 }
 
 lad_data_p3 &lt;- lad_data %&gt;% 
+  group_by(imd_decile) %&gt;% 
+  mutate(
+    youth_asthma_imputed = weighted.mean(youth_asthma, pop, na.rm = TRUE),
+    youth_asthma = ifelse(lad == &quot;E07000089&quot;, youth_asthma_imputed, youth_asthma)
+  ) %&gt;% 
+  ungroup() %&gt;% 
   filter(!is.na(youth_asthma) &amp; !is.na(fuel_poverty)) %&gt;% 
   process_circle() %&gt;% 
   mutate(
-    tooltip = paste(ladx, lad, fuel_poverty, youth_asthma),
+    tooltip = paste0(
+      &quot;&lt;b&gt;&quot;, ladx, &quot;&lt;/b&gt;&lt;br&gt;&lt;sup&gt;Local Authority District &quot;, lad,&quot;&lt;/sup&gt;&lt;br&gt;&lt;u&gt;&quot;,
+      round(fuel_poverty, 1), &quot;%&lt;/u&gt; of households are fuel poor&lt;br&gt;&lt;u&gt;&quot;,
+      prettyNum(round(youth_asthma), big.mark = &quot;,&quot;), 
+      &quot;&lt;/u&gt; asthma admissions for under 19 years per 100,000 population&quot;
+    ),
     pop = normalise(pop, min(pop), max(pop)),
-    pop = 1 + pop / 100
+    pop = 1 + pop / 100,
+    point = case_when(
+      lad == &quot;E07000089&quot; ~ &quot;a&quot;,
+      lad == &quot;E06000009&quot; ~ &quot;b&quot;
+    )
   ) %&gt;% 
-  select(x_diff, y, imd_decile, tooltip, pop, tooltip)
+  select(lad, point, x_diff, y, imd_decile, tooltip, pop)
 
 scene8_radius &lt;- tibble(youth_asthma = 1:5 * 100, fuel_poverty = 20) %&gt;% 
   process_circle() %&gt;% 
@@ -3090,13 +3060,13 @@ modelled_data_wip &lt;- modelled_data %&gt;%
         end = ifelse(row_number() == nrow(.), lag(end, 1), end),
         start = ifelse(row_number() == nrow(.), 0, start)
       ) %&gt;% 
-      select(feature, h, start, end)
+      select(feature_names, feature, h, start, end)
   }) %&gt;% 
   .[c(&quot;E06000009&quot;, &quot;E07000089&quot;)] %&gt;% 
   setNames(c(&quot;p1&quot;, &quot;p2&quot;))
 
 scene9_height_range &lt;- modelled_data_wip %&gt;% 
-  map(pivot_longer, -feature) %&gt;% 
+  map(pivot_longer, -c(feature, feature_names)) %&gt;% 
   bind_rows() %&gt;% 
   .$value %&gt;% 
   range(na.rm = TRUE) %&gt;% 
@@ -3111,10 +3081,12 @@ modelled_data_wip2 &lt;- pmap(
   function(d, range, ratio) {
     d2 &lt;- d %&gt;% 
       mutate_at(vars(h, start, end), list(~normalise(., 0, abs(range)) * ratio))
-    offset &lt;- min(pivot_longer(d2, -c(feature, h))$value, na.rm = TRUE)
+    offset &lt;- min(pivot_longer(d2, -c(feature, feature_names, h))$value, na.rm = TRUE)
     d2 %&gt;%
       mutate_at(vars(start, end), list(~. - offset))
-  })
+  }) %&gt;% 
+  map(mutate, feature_names = as.character(feature_names)) %&gt;% 
+  map(mutate, feature_names = ifelse(is.na(feature_names), &quot;hd_mort&quot;, feature_names))
 
 scene9_layout[[&quot;p2_axis&quot;]] &lt;- scene9_layout[[&quot;bottom&quot;]] + scene9_height_ratio[[&quot;p2&quot;]]
 scene9_layout[[&quot;p1_axis&quot;]] &lt;- scene9_layout[[&quot;p2_axis&quot;]] +
@@ -3122,18 +3094,112 @@ scene9_layout[[&quot;p1_axis&quot;]] &lt;- scene9_layout[[&quot;p2_axis&quot;]] 
 scene9_layout &lt;- scene9_layout %&gt;% 
   append(list(axis_label = tibble(feature = modelled_data_wip2$p1$feature)))
 
+percentile_worse_best &lt;- function(worse_higher = TRUE) {
+  ifelse(worse_higher, 
+         &quot;% percentile in England, where 100% is worst and 0% is best)&quot;,
+         &quot;% percentile in England, where 0% is worst and 100% is best)&quot;)
+}
+
+model_tooltip_x &lt;- model_data %&gt;% 
+  mutate(chd_emer_elec_ratio = chd_emer_admit / chd_elec_admit) %&gt;% 
+  mutate_if(is.numeric, list(pc = ~percent_rank(.) * 100)) %&gt;% 
+  filter(lad %in% modelled_data$lad) %&gt;% 
+  select(
+    lad, ladx, 
+    levels(modelled_data$feature_names), 
+    paste0(levels(modelled_data$feature_names), &quot;_pc&quot;)
+  ) %&gt;% 
+  pivot_longer(-c(lad, ladx)) %&gt;% 
+  mutate(
+    cat = ifelse(str_detect(name, &quot;_pc&quot;), &quot;pc&quot;, &quot;value&quot;),
+    name = str_remove(name, &quot;_pc&quot;)
+  ) %&gt;% 
+  pivot_wider(names_from = &quot;cat&quot;, values_from = &quot;value&quot;) %&gt;% 
+  rename(feature_names = name) %&gt;% 
+  left_join(modelled_data) %&gt;% 
+  mutate(
+    tooltip = case_when(
+      feature_names == &quot;fuel_poverty&quot; ~ 
+        paste0(&quot;fuel poverty &quot;, round(value, 1), &quot;%&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best()),
+      feature_names == &quot;income&quot; ~ 
+        paste0(&quot;household income &amp;pound;&quot;, prettyNum(round(value), big.mark = &quot;,&quot;), &quot;&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == &quot;health_eat&quot; ~ 
+        paste0(&quot;proportion of healthy eating adults &quot;, round(value, 1), &quot;%&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == &quot;community&quot; ~ 
+        paste0(&quot;alcohol-related admissions &quot;, prettyNum(round(value), big.mark = &quot;,&quot;), &quot;&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best()),
+      feature_names == &quot;edu_lv3&quot; ~ 
+        paste0(&quot;proportion of attainment of lv 3 at 19 &quot;, round(value, 1), &quot;%&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == &quot;obesity&quot; ~ 
+        paste0(&quot;obesity prevalence &quot;, round(value, 1), &quot;%&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best()),
+      feature_names == &quot;ae_attn&quot; ~ 
+        paste0(&quot;A&amp;E attendance rate &quot;, prettyNum(round(value), big.mark = &quot;,&quot;), &quot;&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best()),
+      feature_names == &quot;gp_access&quot; ~ 
+        paste0(&quot;number GPs per 100,000 patients &quot;, round(value, 1), &quot;&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best(FALSE)),
+      feature_names == &quot;chd_emer_elec_ratio&quot; ~
+        paste0(&quot;emergency:planned ratio of CHD admissions &quot;, round(value, 2), &quot;:1&lt;br&gt;(&quot;, 
+               round(pc), percentile_worse_best(FALSE)),
+    ),
+    tooltip = paste0(ladx, &quot;&amp;rsquo;s &quot;, tooltip, &quot;&lt;br&gt;&quot;,
+                     ifelse(effect_normalised &gt; 0, &quot;added &quot;, &quot;reduced &quot;),
+                     &quot;&lt;u&gt;&quot;, abs(round(effect_normalised, 1)), &quot;&lt;/u&gt;&quot;,
+                     ifelse(effect_normalised &gt; 0, &quot; to &quot;, &quot; from &quot;),
+                     &quot;simulated death rate (mortality rate)&quot;)
+  ) %&gt;% 
+  select(lad, feature_names, tooltip)
+
+model_tooltip_y &lt;- modelled_data %&gt;% 
+  select(lad, base_value, predicted, actual) %&gt;% 
+  unique() %&gt;% 
+  left_join(imd_lad %&gt;% select(lad, ladx)) %&gt;% 
+  mutate_if(is.numeric, list(~round(., 1))) %&gt;% 
+  mutate(
+    tooltip = paste0(
+      &quot;Factors mentioned on left plus base rate of &quot;, base_value, 
+      &quot; result in &quot;, ladx, 
+      &quot;&amp;rsquo;s simulated death rate (mortality rate) of &lt;u&gt;&quot;, predicted,
+      &quot;&lt;/u&gt; (actual is &quot;, actual, &quot;)&quot;),
+    feature_names = &quot;hd_mort&quot;
+  ) %&gt;% 
+  select(lad, feature_names, tooltip)
+  
+model_tooltip &lt;- bind_rows(model_tooltip_x, model_tooltip_y) %&gt;% 
+  split(.$lad)
+
 modelled_data_p &lt;- list(
   p1 = modelled_data_wip2$p1 %&gt;%
     mutate_at(vars(start, end), 
-              list(~. + scene9_layout[[&quot;p1_axis&quot;]] * 100)),
+              list(~. + scene9_layout[[&quot;p1_axis&quot;]] * 100)) %&gt;% 
+    left_join(model_tooltip$E06000009),
   p2 = modelled_data_wip2$p2 %&gt;%
     mutate_at(vars(start, end), 
-              list(~. + scene9_layout[[&quot;bottom&quot;]] * 100))
-)</code></pre>
+              list(~. + scene9_layout[[&quot;bottom&quot;]] * 100)) %&gt;% 
+    left_join(model_tooltip$E07000089)
+) %&gt;% 
+  map(mutate, imd_decile = case_when(
+    feature_names != &quot;hd_mort&quot; &amp; h &gt; 0 ~ 2,
+    feature_names != &quot;hd_mort&quot; &amp; h &lt; 0 ~ 9,
+    feature_names == &quot;hd_mort&quot; &amp; h &gt; 0 ~ 1,
+    feature_names == &quot;hd_mort&quot; &amp; h &lt; 0 ~ 10
+  ))</code></pre>
 </div>
 <div id="others-1" class="section level2">
 <h2>Others</h2>
 <pre class="r"><code>inequlity_data_p &lt;- inequlity %&gt;% 
+  mutate(
+    tooltip = case_when(
+      data == &quot;hd_mort_eng&quot; ~ &quot;Premature death rate (mortality rate, under 75)&lt;br&gt;from heart disease in England&quot;,
+      data == &quot;inequality_index&quot; ~ &quot;Relative index of inequality (log scale)&quot;
+    ),
+    tooltip = paste0(tooltip, &quot;,&lt;br&gt;during &quot;, year, &quot;&lt;br&gt;: &lt;u&gt;&quot;, round(value, 1), &quot;&lt;/u&gt;&quot;)
+  ) %&gt;% 
   split(.$data) %&gt;% 
   map(mutate, x = row_number()) %&gt;% 
   map(mutate, x = x / max(x) * 80 + 10) %&gt;% 
@@ -3141,16 +3207,18 @@ modelled_data_p &lt;- list(
     &quot;hd_mort_eng&quot;, 
     ~.x %&gt;% 
       mutate(
-        value = normalise(value, 70, 85),
-        x = x / 2 * 0.9 + 5
+        value = normalise(value, 50, 100),
+        x = x / 2 * 0.9 + 5,
+        imd_decile = 9
       )
   ) %&gt;% 
   modify_at(
     &quot;inequality_index&quot;, 
     ~.x %&gt;% 
       mutate(
-        value = normalise(value, 3, 4.5),
+        value = normalise(value, 3, 5),
         x = x / 2 * 0.9 + 55,
+        imd_decile = 2,
         measure = &quot;Relative index of inequality (log)&quot;
       )
   ) %&gt;% 
@@ -3163,14 +3231,52 @@ yll_summ &lt;- yll %&gt;%
     yll = prettyNum(yll, big.mark = &quot;,&quot;)
   ) %&gt;% 
   (function(x) x$yll %&gt;% setNames(x$region)) %&gt;% 
-  as.list()
-
-alloc_summ &lt;- allocation %&gt;% 
-  filter(imd_decile %in% c(1, 10)) %&gt;% 
-  pivot_wider(names_from = &quot;year&quot;, values_from = &quot;alloc&quot;) %&gt;% 
-  mutate(increase = `2020-21` - `2016-17`) %&gt;% 
-  (function(x) x$increase[1] / x$increase[2]) %&gt;% 
-  round(2)</code></pre>
+  as.list()</code></pre>
+</div>
+<div id="location-of-a-b" class="section level2">
+<h2>Location of A &amp; B</h2>
+<pre class="r"><code>ab_loc &lt;- lad_data_p %&gt;% 
+  mutate(point = case_when(
+    ladx == &quot;Hart&quot; ~ &quot;a&quot;,
+    ladx == &quot;Blackpool&quot; ~ &quot;b&quot;
+  )) %&gt;% 
+  filter(!is.na(point)) %&gt;% 
+  mutate(
+    s1_x = map_dbl(hexmap, ~mean(.x$x)), s1_y = map_dbl(hexmap, ~mean(.x$y)),
+    s2_x = map_dbl(hexscatter, ~mean(.x$x)), s2_y = map_dbl(hexscatter, ~mean(.x$y))
+  ) %&gt;% 
+  select(point, ends_with(&quot;_x&quot;), ends_with(&quot;_y&quot;)) %&gt;% 
+  pivot_longer(-point) %&gt;% 
+  separate(name, into = c(&quot;scene&quot;, &quot;name&quot;), sep = &quot;_&quot;) %&gt;% 
+  pivot_wider() %&gt;% 
+  split(.$scene)
+ab_loc[[&quot;s3&quot;]] &lt;- decile_data_p %&gt;% 
+  mutate(point = case_when(
+    imd_decile == 10 ~ &quot;a&quot;,
+    imd_decile == 1 ~ &quot;b&quot;
+  )) %&gt;% 
+  filter(!is.na(point)) %&gt;% 
+  mutate(
+    x = story_width * 100,
+    y = decile_y
+  )
+ab_loc[[&quot;s7&quot;]] &lt;- lad_data_p2 %&gt;% 
+  select(lad, x) %&gt;% 
+  unique() %&gt;% 
+  mutate(point = case_when(
+    lad == &quot;E07000089&quot; ~ &quot;a&quot;,
+    lad == &quot;E06000009&quot; ~ &quot;b&quot;
+  )) %&gt;% 
+  filter(!is.na(point)) %&gt;% 
+  mutate(y = scene7_layout$p3_start * 100)
+ab_loc[[&quot;s8&quot;]] &lt;- lad_data_p3 %&gt;% 
+  filter(!is.na(point)) %&gt;% 
+  select(point, x_diff, y)
+ab_loc[[&quot;s9&quot;]] &lt;- tibble(
+  point = c(&quot;b&quot;, &quot;a&quot;), 
+  x = 21,
+  y = c(scene9_layout$p1_axis, scene9_layout$p2_axis) * 100 - 0.3
+)</code></pre>
 </div>
 <div id="save-as-json" class="section level2">
 <h2>Save as JSON</h2>
@@ -3180,9 +3286,8 @@ alloc_summ &lt;- allocation %&gt;%
   lad = lad_data_p,
   
   decile = decile_data_p,
-  gp_grad = decile_data_p$gp_x_grad + 5, 
-  gp_x = decile_data_p$gp_x, 
-  ae_x = decile_data_p$ae_x,
+  gp_x = decile_data_p$gp_x, gp_grad = decile_data_p$gp_grad, 
+  ae_x = decile_data_p$ae_x, ae_grad = decile_data_p$ae_grad, 
   decile_y = decile_data_p$decile_y,
   
   scene7_layout = map(scene7_layout, ~.x * 100),
@@ -3202,7 +3307,13 @@ alloc_summ &lt;- allocation %&gt;%
     map(&quot;measure&quot;) %&gt;% 
     map_chr(unique),
   
-  yll = yll_summ, alloc = alloc_summ
+  yll = yll_summ, 
+  
+  ab_loc = ab_loc %&gt;% 
+    map(~.x %&gt;% 
+          split(.$point) %&gt;% 
+          map(select, starts_with(&quot;x&quot;), y) %&gt;% 
+          map(as.list))
 ) %&gt;% 
   jsonlite::toJSON() %&gt;% 
   write(&quot;js/data.json&quot;)</code></pre>

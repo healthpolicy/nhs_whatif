@@ -1,0 +1,69 @@
+body {
+  background-color: black;
+  color: white;
+  font-family: Garamond,Baskerville,Baskerville Old Face,Hoefler Text,Times New Roman,serif; 
+  overflow-x: hidden;
+}
+p {
+  font-size: 1.3vw;
+}
+h1 {
+  font-size: 2.8vw;
+}
+
+.story {
+  position: absolute;
+  left: 0;
+  display: inline-block;
+}
+.vis {
+  z-index: 10;
+  display: inline-block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+}
+
+.scene, .margin {
+  width: 40vw;
+  padding: 70vh 0;
+  text-align: center;
+}
+.scene {
+  height: 100vh;
+}
+
+.imd10 {
+  text-decoration: underline;
+  -webkit-text-decoration-color: #087E76; /* Safari */  
+  text-decoration-color: #087E76;
+}
+
+.imd1 {
+  text-decoration: underline;
+  -webkit-text-decoration-color: #A11A20; /* Safari */  
+  text-decoration-color: #A11A20;
+}
+
+.column3 {
+  float: left;
+  width: 25%;
+  text-align: left;
+  padding-top: 15vh;
+  padding-left: 5vw;
+}
+.column3-margin {
+  float: left;
+  width: 12.5%;
+}
+
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.fluid-row {
+  display: none;
+}
