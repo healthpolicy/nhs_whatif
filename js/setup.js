@@ -87,23 +87,12 @@ var hide_obj = function(x, duration = 300) {
 
 var show_div = function(id, current_y, appear) {
   var div = document.getElementById(id);
-  var hider = svg
-    .append("g")
-    .append("rect")
-    .attr("x", 0)
-    .attr("y", div.offsetTop)
-    .attr("width", div.offsetWidth)
-    .attr("height", div.offsetHeight * 1.03)
-    .attr("fill", "black");
-  initially_hide(hider);
-  if (current_y > appear & div.style.visibility == "hidden") {
+  if (current_y > appear) {
     div.style.visibility = "visible";
-      hider.style("visibility", "visible").style("opacity", 1);
-    hide_obj(hider, 1000);
-  } else if (current_y > appear & div.style.visibility == "visible") {
-    div.style.visibility = "visible";
+    div.style.opacity = 1;
   } else {
     div.style.visibility = "hidden";
+    div.style.opacity = 0;
   }
 };
 

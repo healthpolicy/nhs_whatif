@@ -27,7 +27,7 @@ p("Deconstructing an irreversible outcome from health inequality")
 ```{r}
 div(
   id = "scene1_box", style = "height: 100vh; width: 40vw; padding: 10vh 0;",
-  div(id = "scene1_common", style = "width: 100%; display: inline-block; visibility: hidden;",
+  div(id = "scene1_common", class = "anim-div", style = "width: 100%; display: inline-block;",
       p(tags$i("Both are...")), 
       p("63 years old and male", br(),
         "fathers of two daughters", br(),
@@ -46,7 +46,7 @@ div(
       div(style = "float: left; width: 45%; padding-right: 3vw;", h1("Bob"))
   ),
   
-  div(id = "scene1_diff1", style = "width: 100%; display: inline-block; padding: 50px 0; visibility: hidden;", 
+  div(id = "scene1_diff1", class = "anim-div", style = "width: 100%; display: inline-block; padding: 50px 0;", 
       p(tags$i("However...")), 
       div(style = "width: 50%; float: left;",
           p("Ajay recovered from a", br(), 
@@ -56,7 +56,7 @@ div(
           p(HTML("&nbsp;"), br(), 
             "Bob died at the hospital"))
   ),
-  div(id = "scene1_diff2", style = "width: 100%; display: inline-block; visibility: hidden;",
+  div(id = "scene1_diff2", class = "anim-div", style = "width: 100%; display: inline-block;",
       div(style = "width: 50%; float:left;",
           p(img(src = "img/a_marker.png", style = "width: 2vw; height: 2.5vw;"),
             "Ajay is in ", span(class = "imd10", "Hart"),", Hampshire")),
@@ -133,10 +133,10 @@ div(
   div(id = "scene9_text1",
       h1("All these things made the difference between Ajay recovery and Bob's premature death")),
   
-  div(id = "scene9_text2", style = "visibility: hidden;",
+  div(id = "scene9_text2", class = "anim-div", 
       h1("Unfortunately, the situation will be worsened generation after generation, if untouched")),
   
-  div(id = "scene9_text3", style = "visibility: hidden;",
+  div(id = "scene9_text3", class = "anim-div", 
       h1("The effect of growing health inequalities is felt across the whole nation"),
       div(class = "row",
           div(class = "column3-margin", HTML("&nbsp;")),

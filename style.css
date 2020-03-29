@@ -33,6 +33,11 @@ h1 {
 .scene {
   height: 100vh;
 }
+.anim-div {
+  visibility: hidden; 
+  opacity: 0; 
+  transition: opacity 0.3s;
+}
 
 .imd10 {
   text-decoration: underline;
