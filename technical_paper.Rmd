@@ -50,6 +50,13 @@ raw_data_source <- list(
     page_url = "https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019",
     download_url = "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/845345/File_7_-_All_IoD2019_Scores__Ranks__Deciles_and_Population_Denominators_3.csv"
   ),
+  ccg_lsoa_lkup = tibble(
+    description = "Lookup table - Lower Layer Super Output Area (2011) to Clinical Commissioning Group to Local Authority District (April 2016) Lookup in England",
+    source = "ONS",
+    year = "",
+    page_url = "https://geoportal.statistics.gov.uk/datasets/lower-layer-super-output-area-2011-to-clinical-commissioning-group-to-local-authority-district-april-2016-lookup-in-england/data",
+    download_url = "https://opendata.arcgis.com/datasets/540454dbf5af4b3ab7d654eb68bae6ce_0.csv"
+  ),
   pop_lsoa = tibble(
     description = "Population estimates, Lower layer Super Output Area",
     source = "ONS",
@@ -85,6 +92,27 @@ raw_data_source <- list(
     page_url = "https://lginform.local.gov.uk/reports/lgastandard?mod-metric=3178&mod-area=E92000001&mod-group=AllRegions_England&mod-type=namedComparisonGroup",
     download_url = "https://lginform.local.gov.uk/reports/shared/V268496A627A6662426A58616677524D37582B346F653272624D662F4F67586349434855753458415269306430565533614E7466547A566D7137506542452F6348594F70426A634563443055724846633161377631593034465A555948586C6A56664A4748755453505336593D"
   ),
+  gp_hc = tibble(
+    description = "All GPs in each NHS England (region, local office) & Clinical Commissioning Group",
+    source = "NHS",
+    year = "2019",
+    page_url = "https://digital.nhs.uk/data-and-information/publications/statistical/general-and-personal-medical-services/final-30-september-2019",
+    download_url = "https://files.digital.nhs.uk/36/AECDCB/GPW%20Detailed%20Tables%20September%202019%20-%20NHSE.xlsx"
+  ),
+  gp_pt = tibble(
+    description = "Registered GP Patients in each NHS England (region, local office) & Clinical Commissioning Group",
+    source = "NHS",
+    year = "2019",
+    page_url = "https://digital.nhs.uk/data-and-information/publications/statistical/general-and-personal-medical-services/final-30-september-2019",
+    download_url = "https://files.digital.nhs.uk/36/AECDCB/GPW%20Detailed%20Tables%20September%202019%20-%20NHSE.xlsx"
+  ),
+  ae_attn = tibble(
+    description = "A&E attendances – regional breakdown",
+    source = "NHS",
+    year = "2017/18",
+    page_url = "https://digital.nhs.uk/data-and-information/find-data-and-publications/supplementary-information/2018-supplementary-information-files/ae-attendances---regional-breakdown",
+    download_url = "https://digital.nhs.uk/binaries/content/assets/website-assets/supplementary-information/supplementary-info-2018/180514-unplanned-ae-attendances.xlsx"
+  ),
   obesity = tibble(
     description = "Obesity: QOF prevalence (18+)",
     source = "Public Health England",
@@ -99,13 +127,6 @@ raw_data_source <- list(
     page_url = "https://www.gov.uk/government/publications/education-statistics-by-la-district-and-pupil-disadvantage",
     download_url = "https://www.gov.uk/government/uploads/system/uploads/attachment_data/file/672867/4.16to19DataTables_Jan.xlsx"
   ),
-  # employment = tibble(
-  #   description = "The proportion of people of working age in employment",
-  #   year = "2014",
-  #   source = "NHS",
-  #   page_url = "https://digital.nhs.uk/data-and-information/publications/clinical-indicators/compendium-of-population-health-indicators/compendium-local-basket-of-inequality-indicators-lboi/current/section-1-employment-poverty-and-deprivation/lboi-indicator-1-3-the-proportion-of-people-of-working-age-in-employment",
-  #   download_url = "https://files.digital.nhs.uk/1D/E4A75A/LBOI_01.03_D.xlsx"
-  # ),
   income = tibble(
     description = "Gross Disposable Household Income per head by Local Authority",
     year = "2016",
@@ -236,61 +257,27 @@ please_download <- function(alread_have = raw_data, x, source = raw_data_source,
 raw_data <- raw_data %>% 
   please_download("imd_lad", sheet = "IMD", skip = 0) %>%
   please_download("imd_ccg", sheet = "IMD", skip = 0) %>%
+  please_download("imd_lsoa") %>%
+  please_download("ccg_lsoa_lkup") %>%
   please_download("pop_lsoa", sheet = "Mid-2018 Persons", skip = 4) %>%
   please_download("pop_lad", sheet = "MYE2-All", skip = 4) %>%
   please_download("hd_mort") %>%
-  # please_download("pop", sheet = "MYE2-All", skip = 4) %>% 
   please_download("chd_emer_admit") %>% 
   please_download("chd_elec_admit") %>% 
+  please_download("gp_hc", sheet = "1a", skip = 12) %>% 
+  please_download("gp_pt", sheet = "5", skip = 12) %>% 
+  please_download("ae_attn", sheet = "Table1", skip = 4) %>% 
   please_download("obesity") %>% 
   please_download("edu_lv3", sheet = "Table FE1", skip = 7) %>% 
-  # please_download("employment", sheet = "Table 11 - 2014", skip = 3) %>% 
   please_download("income", sheet = "GDHI per head", skip = 2) %>% 
   please_download("community") %>% 
   please_download("health_eat") %>% 
   please_download("fuel_poverty", sheet = "Table 2", skip = 2) %>% 
   please_download("youth_asthma") %>% 
   please_download("yll")
-
-## TO-DO: Integrate below datasets to the fucntion above
-raw_data[["imd_lsoa"]] <- read_csv("source/File_7_-_All_IoD2019_Scores__Ranks__Deciles_and_Population_Denominators_3.csv")
-
-# https://geoportal.statistics.gov.uk/datasets/lower-layer-super-output-area-2011-to-clinical-commissioning-group-to-local-authority-district-april-2016-lookup-in-england/data
-raw_data[["ccg_lsoa_lkup"]] <- read_csv("source/Lower_Layer_Super_Output_Area_2011_to_Clinical_Commissioning_Group_to_Local_Authority_District_April_2016_Lookup_in_England.csv")
-
-# https://digital.nhs.uk/data-and-information/find-data-and-publications/supplementary-information/2018-supplementary-information-files/ae-attendances---regional-breakdown
-raw_data[["ae_attn"]] <- readxl::read_xlsx(
-  "source/10528_Winter_Performance_Stats_Final.xlsx", 
-  "Table1", skip = 4
-)
-
 raw_data[["uk_shp"]] <- rgdal::readOGR("source/Countries_December_2018_Boundaries_UK_BUC.shp")
 raw_data[["lad_shp"]] <- rgdal::readOGR("source/Local_Authority_Districts_April_2019_Boundaries_UK_BUC.shp")
-
-raw_data[["gp_hc"]] <- readxl::read_excel(
-  "source/GPW Detailed Tables September 2019 - NHSE.xlsx",
-  "1a", skip = 12
-)
-
-raw_data[["gp_pt"]] <- readxl::read_excel(
-  "source/GPW Detailed Tables September 2019 - NHSE.xlsx",
-  "5", skip = 12
-)
-
-# How often do you see or speak to your preferred GP when you would like to?
-raw_data[["gp_survey_frequency"]] <- readxl::read_excel("source/GPPS_2019_CCG_results_(weighted)_(Excel)_PUBLIC.xls", 
-                                                        sheet = 2, skip = 8)
-
-# (When you tried to make an appointment), were you offered a choice of appointment?														
-raw_data[["gp_survey_choice"]] <- readxl::read_excel("source/GPPS_2019_CCG_results_(weighted)_(Excel)_PUBLIC.xls", 
-                                                     sheet = 3, skip = 7)
-
-# Overall, how would you describe your experience of your GP practice?
-raw_data[["gp_survey_satisfaction"]] <- readxl::read_excel("source/GPPS_2019_CCG_results_(weighted)_(Excel)_PUBLIC.xls", 
-                                                           sheet = 5, skip = 8)
-
 raw_data[["inequlity"]] <- read_csv("source/Health Inequalities DashboardHealth Inequalities DashboardOverviewDataIndicator DefinitionsContact us.csv")
-
 
 saveRDS(raw_data, "raw_data.RDS")
 ```
@@ -552,32 +539,6 @@ gp_access <- raw_data[c("gp_hc", "gp_pt")] %>%
   pivot_wider() %>% 
   mutate(gp_access = gp_hc / gp_pt * 100000)
 
-summarise_survey <- function(df, prefix) {
-  df %>% 
-    gather("name", "value", factor_key = TRUE, -ccg) %>% 
-    mutate(value = as.numeric(value)) %>% 
-    inner_join(imd_ccg) %>% 
-    group_by(imd_decile, name) %>% 
-    summarise(value = weighted.mean(value, pop, na.rm = TRUE)) %>% 
-    group_by(imd_decile) %>% 
-    mutate(value = value / sum(value)) %>% 
-    ungroup() %>% 
-    mutate(name = paste0(prefix, "~", as.numeric(name), " ", name)) %>% 
-    pivot_wider()
-}
-
-gp_survey_frequency <- raw_data$gp_survey_frequency %>% 
-  select(ccg = 2, 132:135) %>% 
-  summarise_survey("gp_survey_frequency")
-  
-gp_survey_choice <- raw_data$gp_survey_choice %>% 
-  select(ccg = 2, 84:87) %>% 
-  summarise_survey("gp_survey_choice")
-
-gp_survey_satisfaction <- raw_data$gp_survey_satisfaction %>% 
-  select(ccg = 2, 14:18) %>% 
-  summarise_survey("gp_survey_satisfaction")
-
 ae_attn <- raw_data$ae_attn %>%
   filter(Geography == "CCG") %>%
   select(ccg = `Organisation Code`, ae_attn_total = `A&E Attendances`, pop = Population) %>%
@@ -597,9 +558,6 @@ obesity <- raw_data$obesity %>%
 decile_data <- list(
   chd_emer_elec,
   gp_access,
-  gp_survey_frequency,
-  gp_survey_choice,
-  gp_survey_satisfaction,
   ae_attn,
   obesity
 ) %>% 
@@ -677,19 +635,6 @@ ggplot(decile_data, aes(imd_decile, gp_access)) +
   geom_point() +
   geom_line()
 ```
-
-```{r}
-decile_data %>% 
-  select(imd_decile, starts_with("gp_survey")) %>% 
-  pivot_longer(-imd_decile) %>% 
-  separate(name, into = c("survey", "response"), sep = "~") %>% 
-  ggplot(aes(imd_decile, value, fill = response)) +
-  geom_col() +
-  coord_flip() +
-  facet_wrap(~survey, nrow = 1) +
-  theme(legend.position = "bottom")
-```
-
 
 ## Scene 5
 
